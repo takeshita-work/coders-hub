@@ -50,6 +50,19 @@ describe('sortSessions', () => {
   })
 })
 
+describe('質問待ち（ADR 0010）', () => {
+  it('AC-001-10: 許可待ち → 質問待ち → 返答待ち → 作業中の順に並ぶ', () => {
+    const sorted = sortSessions([s('w', 'working', 9), s('r', 'waiting', 9), s('q', 'question', 1), s('p', 'permission', 1)])
+    assert.deepEqual(sorted.map((x) => x.sessionId), ['p', 'q', 'r', 'w'])
+  })
+
+  it('要対応に含まれ、「要対応のみ」に残る（AC-010-5）', () => {
+    const groups = groupByAccount([s('q', 'question', 1), s('w', 'working', 1)], 'attention')
+    assert.deepEqual(groups[0].sessions.map((x) => x.sessionId), ['q'])
+    assert.equal(groups[0].counts.question, 1)
+  })
+})
+
 describe('groupByAccount', () => {
   const list = [
     s('a1', 'working', 1, { account: 'C:\\x\\.claude-a' }),
@@ -92,12 +105,13 @@ describe('groupByAccount', () => {
 describe('countStates / titleFor', () => {
   it('AC-010-3: 状態ごとの件数', () => {
     const c = countStates([s('1', 'permission', 1), s('2', 'waiting', 1), s('3', 'waiting', 1), s('4', 'working', 1)])
-    assert.deepEqual(c, { permission: 1, waiting: 2, working: 1, total: 4 })
+    assert.deepEqual(c, { permission: 1, question: 0, waiting: 2, working: 1, total: 4 })
+    assert.equal(countStates([s('1', 'question', 1)]).question, 1)
   })
 
   it('AC-010-4: 要対応があればタイトルに件数、0 件なら件数なし', () => {
-    assert.equal(titleFor({ permission: 2, waiting: 3, working: 1, total: 6 }), '(5) Coders Hub')
-    assert.equal(titleFor({ permission: 0, waiting: 0, working: 4, total: 4 }), 'Coders Hub')
+    assert.equal(titleFor({ permission: 2, question: 1, waiting: 3, working: 1, total: 7 }), '(6) Coders Hub')
+    assert.equal(titleFor({ permission: 0, question: 0, waiting: 0, working: 4, total: 4 }), 'Coders Hub')
   })
 })
 

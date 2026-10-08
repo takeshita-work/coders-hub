@@ -35,7 +35,7 @@ export const createStatusMonitor = ({ store, intervalMs = 500, files = realFs, h
       const dirs = new Set(store.list().map((s) => sessionsDirOf(s.account, home)))
       for (const dir of dirs) {
         for (const j of await readDir(dir)) {
-          if (store.get(j.sessionId)) store.applyStatus(j.sessionId, { status: j.status, at: j.statusUpdatedAt })
+          if (store.get(j.sessionId)) store.applyStatus(j.sessionId, { status: j.status, waitingFor: j.waitingFor, at: j.statusUpdatedAt })
         }
       }
     } catch { /* 補助なので、失敗しても本体は動き続ける */ } finally {

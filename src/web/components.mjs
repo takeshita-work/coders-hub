@@ -14,6 +14,7 @@ export const Summary = ({ counts, filter, onFilter }) =>
     h('h1', null, 'Coders Hub'),
     h('div', { className: 'counts', 'aria-label': '件数' },
       h('span', { className: 'count count-permission', 'data-count': 'permission' }, `許可待ち ${counts.permission}`),
+      h('span', { className: 'count count-question', 'data-count': 'question' }, `質問待ち ${counts.question}`),
       h('span', { className: 'count count-waiting', 'data-count': 'waiting' }, `返答待ち ${counts.waiting}`),
       h('span', { className: 'count count-working', 'data-count': 'working' }, `作業中 ${counts.working}`),
     ),
@@ -52,6 +53,7 @@ export const Group = ({ group, collapsed, onToggle, now }) => {
       h('span', { className: 'group-total' }, `${counts.total} 件`),
       // 折りたたんでいても要対応の件数を見せる（AC-008-4）
       counts.permission > 0 && h('span', { className: 'chip chip-permission' }, `許可待ち ${counts.permission}`),
+      counts.question > 0 && h('span', { className: 'chip chip-question' }, `質問待ち ${counts.question}`),
       counts.waiting > 0 && h('span', { className: 'chip chip-waiting' }, `返答待ち ${counts.waiting}`),
     ),
     !collapsed && h('ul', { className: 'rows' },

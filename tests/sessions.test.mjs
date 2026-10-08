@@ -91,6 +91,30 @@ describe('状態遷移（plan.md の遷移表）', () => {
   })
 })
 
+describe('質問待ち（ADR 0010）', () => {
+  it('AC-001-10: AskUserQuestion の PermissionRequest は質問待ち、他のツールは許可待ちになる', () => {
+    store.applyHookEvent(hook('UserPromptSubmit', { prompt: 'x' }))
+    store.applyHookEvent(hook('PermissionRequest', { tool_name: 'AskUserQuestion' }))
+    assert.equal(store.get('s1').state, 'question')
+    store.applyHookEvent(hook('PostToolUse', { tool_name: 'AskUserQuestion' }))
+    assert.equal(store.get('s1').state, 'working')
+    store.applyHookEvent(hook('PermissionRequest', { tool_name: 'Bash' }))
+    assert.equal(store.get('s1').state, 'permission')
+  })
+
+  it('質問待ちで始まったセッション（未登録）も登録できる', () => {
+    store.applyHookEvent(hook('PermissionRequest', { tool_name: 'AskUserQuestion' }, 'q1'))
+    assert.equal(store.get('q1').state, 'question')
+  })
+
+  it('質問待ちの中断（Esc）は、返答待ちへ戻り、会話ログの確認の対象にもなる', () => {
+    store.applyHookEvent(hook('PermissionRequest', { tool_name: 'AskUserQuestion' }))
+    assert.deepEqual(store.monitorTargets().map((t) => t.sessionId), ['s1'])
+    assert.equal(store.applyInterruption('s1', 5_000), true)
+    assert.equal(store.get('s1').state, 'waiting')
+  })
+})
+
 describe('登録前後のイベントの順序', () => {
   it('SessionStart より先に PermissionRequest が届いても登録される', () => {
     store.applyHookEvent(hook('PermissionRequest'))

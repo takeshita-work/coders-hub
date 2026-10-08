@@ -1,16 +1,29 @@
 // セッション一覧の状態管理（HTTP・WebSocket から独立した純粋なロジック）。
 // plan.md「状態遷移とフック」「生存確認と削除」に対応する。時刻は差し替え可能にしてテストする。
 
+// モデルからの質問（AskUserQuestion）は、ツールの許可ではなく回答を求めるものなので、許可待ちと分けて「質問待ち」にする（ADR 0010）
+const QUESTION_TOOL = 'AskUserQuestion'
+
 const STATE_BY_EVENT = {
   UserPromptSubmit: 'working',
-  PermissionRequest: 'permission',
   Stop: 'waiting',
 }
+// 状態を決めるフック（PermissionRequest は、ツールによって許可待ちか質問待ちになる）
+const stateForEvent = (event, input) =>
+  event === 'PermissionRequest' ? (input.tool_name === QUESTION_TOOL ? 'question' : 'permission') : STATE_BY_EVENT[event]
+
+// 人の応答を待って止まっている状態（許可待ち・質問待ち）
+const isBlocked = (state) => state === 'permission' || state === 'question'
 // 未登録のセッションでこれらを受けたら、作業中として登録する（SessionStart より先に届いた場合など）
 const IMPLIES_WORKING = new Set(['PreToolUse', 'PostToolUse'])
 
-// claude 自身が書く sessions/<pid>.json の status（ADR 0009）。許可待ち・質問待ち（waiting）はどちらも許可待ちとして扱う
-const STATE_BY_STATUS = { busy: 'working', idle: 'waiting', waiting: 'permission' }
+// claude 自身が書く sessions/<pid>.json の status（ADR 0009）。waiting は waitingFor で、質問待ち（input needed）と許可待ちに分ける
+const stateForStatus = (status, waitingFor) => {
+  if (status === 'busy') return 'working'
+  if (status === 'idle') return 'waiting'
+  if (status === 'waiting') return waitingFor === 'input needed' ? 'question' : 'permission'
+  return undefined
+}
 
 const view = (r) => ({
   sessionId: r.sessionId,
@@ -80,9 +93,9 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
 
       let r = sessions.get(id)
       if (!r) {
-        const initial = STATE_BY_EVENT[event] ?? (IMPLIES_WORKING.has(event) ? 'working' : 'waiting')
-        r = create(id, initial)
-        r.unverified = !(event in STATE_BY_EVENT) && !IMPLIES_WORKING.has(event) && event !== 'SessionStart'
+        const decided = stateForEvent(event, input)
+        r = create(id, decided ?? (IMPLIES_WORKING.has(event) ? 'working' : 'waiting'))
+        r.unverified = !decided && !IMPLIES_WORKING.has(event) && event !== 'SessionStart'
         setFields(r, { account, cwd: input.cwd, transcriptPath: input.transcript_path })
         if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = input.prompt
         emit({ type: 'added', session: view(r) })
@@ -92,10 +105,11 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
       const before = JSON.stringify(view(r))
       setFields(r, { account, cwd: input.cwd, transcriptPath: input.transcript_path })
       if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = input.prompt
-      if (STATE_BY_EVENT[event] || IMPLIES_WORKING.has(event) || event === 'SessionStart') r.unverified = false
-      if (STATE_BY_EVENT[event]) setState(r, STATE_BY_EVENT[event])
+      const decided = stateForEvent(event, input)
+      if (decided || IMPLIES_WORKING.has(event) || event === 'SessionStart') r.unverified = false
+      if (decided) setState(r, decided)
       // 許可後にツールが終わったら作業中へ戻す。それ以外の PostToolUse では動かさない
-      else if (event === 'PostToolUse' && r.state === 'permission') setState(r, 'working')
+      else if (event === 'PostToolUse' && isBlocked(r.state)) setState(r, 'working')
       commit(r, before)
     },
 
@@ -138,7 +152,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
     // 会話ログで中断・拒否を検知した（ADR 0007）。at: ログの時刻（ミリ秒）
     applyInterruption(sessionId, at = null) {
       const r = sessions.get(sessionId)
-      if (!r || (r.state !== 'permission' && r.state !== 'working')) return false
+      if (!r || (!isBlocked(r.state) && r.state !== 'working')) return false
       // 今の状態になる前の記録（以前の中断）は無視する
       if (at !== null && at < r.stateSince) return false
       const before = JSON.stringify(view(r))
@@ -149,9 +163,9 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
 
     // claude 自身の状態ファイル（sessions/<pid>.json）の status を反映する（ADR 0009）。at: statusUpdatedAt（ミリ秒）
     // フックで分かっている状態より新しい変化だけを採用する。推測で置いた状態（unverified）は、時刻を問わず置き換える
-    applyStatus(sessionId, { status, at = null }) {
+    applyStatus(sessionId, { status, waitingFor = null, at = null }) {
       const r = sessions.get(sessionId)
-      const target = STATE_BY_STATUS[status]
+      const target = stateForStatus(status, waitingFor)
       if (!r || !target) return false
       const before = JSON.stringify(view(r))
       if (r.unverified) {
@@ -169,7 +183,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
     // 会話ログを確認する対象（許可待ち・作業中のセッションだけ）
     monitorTargets() {
       return [...sessions.values()]
-        .filter((r) => (r.state === 'permission' || r.state === 'working') && r.transcriptPath)
+        .filter((r) => (isBlocked(r.state) || r.state === 'working') && r.transcriptPath)
         .map((r) => ({ sessionId: r.sessionId, transcriptPath: r.transcriptPath, state: r.state, stateSince: r.stateSince }))
     },
 

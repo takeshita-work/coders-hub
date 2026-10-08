@@ -2,6 +2,7 @@
 // PreToolUse／PostToolUse の入力にはツールの入出力（ファイルの中身など）が含まれ大きいので、必要な項目だけ送る。
 
 const MAX_PROMPT_CHARS = 2000
+// tool_name は、許可待ちと質問待ち（AskUserQuestion）の区別に使う
 const KEEP = ['session_id', 'cwd', 'transcript_path', 'notification_type', 'reason', 'tool_name', 'source']
 
 // 戻り値: Hub の POST /event に送る本文。イベント名か session_id がなければ null

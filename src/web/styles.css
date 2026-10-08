@@ -6,6 +6,8 @@
   --border: #e3e6eb;
   --permission: #c4281c;
   --permission-bg: #fdecea;
+  --question: #6a3fc4;
+  --question-bg: #f1ebfc;
   --waiting: #a15c00;
   --waiting-bg: #fff4dc;
   --working: #3b6fd8;
@@ -21,6 +23,8 @@
     --border: #2b323e;
     --permission: #ff7b72;
     --permission-bg: #3a1c1c;
+    --question: #b79cf5;
+    --question-bg: #2c2347;
     --waiting: #f0b24a;
     --waiting-bg: #3a2e14;
     --working: #7fa6f5;
@@ -43,6 +47,7 @@ body {
 .counts { display: flex; gap: 8px; flex-wrap: wrap; }
 .count { padding: 2px 10px; border-radius: 999px; font-weight: 600; background: var(--working-bg); color: var(--working); }
 .count-permission { background: var(--permission-bg); color: var(--permission); }
+.count-question { background: var(--question-bg); color: var(--question); }
 .count-waiting { background: var(--waiting-bg); color: var(--waiting); }
 .filters { margin-left: auto; display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .filter { border: 0; background: var(--surface); color: var(--text); padding: 6px 12px; font: inherit; cursor: pointer; }
@@ -62,6 +67,7 @@ body {
 .group-total { color: var(--muted); }
 .chip { padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .chip-permission { background: var(--permission-bg); color: var(--permission); }
+.chip-question { background: var(--question-bg); color: var(--question); }
 .chip-waiting { background: var(--waiting-bg); color: var(--waiting); }
 
 .rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
@@ -71,9 +77,11 @@ body {
 }
 .row + .row { border-top: 1px solid var(--border); }
 .row.state-permission { background: var(--permission-bg); border-left-color: var(--permission); }
+.row.state-question { background: var(--question-bg); border-left-color: var(--question); }
 .row.state-waiting { background: var(--waiting-bg); border-left-color: var(--waiting); }
 .badge { font-weight: 700; }
 .state-permission .badge { color: var(--permission); }
+.state-question .badge { color: var(--question); }
 .state-waiting .badge { color: var(--waiting); }
 .state-working .badge { color: var(--working); }
 .elapsed { color: var(--muted); font-variant-numeric: tabular-nums; }

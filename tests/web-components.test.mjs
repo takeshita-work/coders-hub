@@ -96,6 +96,25 @@ describe('要対応の強調とサマリー', () => {
   })
 })
 
+describe('質問待ち（ADR 0010）', () => {
+  const state = stateOf([s('q', 'question', 5), s('p', 'permission', 5), s('w', 'waiting', 5), s('k', 'working', 5)])
+
+  it('AC-001-10, AC-010-2: 質問待ちが、許可待ち・返答待ちと別のクラスと文言で区別され、許可待ちの次に並ぶ', () => {
+    const html = render(state)
+    assert.match(html, /class="row state-question"/)
+    assert.match(text(html), /質問待ち/)
+    assert.deepEqual(rowIds(html), ['p', 'q', 'w', 'k'])
+  })
+
+  it('AC-010-3: サマリーに質問待ちの件数が出る', () => {
+    assert.match(render(state), /data-count="question">質問待ち 1</)
+  })
+
+  it('AC-008-4: 折りたたんでも、質問待ちの件数が残る', () => {
+    assert.match(render(state, { collapsed: new Set(['C:\\x\\.claude-a']) }), /chip-question">質問待ち 1</)
+  })
+})
+
 describe('折りたたみ', () => {
   const state = stateOf([s('p', 'permission', 1), s('w', 'waiting', 1), s('k', 'working', 1)])
 

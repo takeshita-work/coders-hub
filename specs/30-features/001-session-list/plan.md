@@ -43,9 +43,9 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 |---|---|
 | `SessionStart` | セッションを登録（状態は `waiting`）。チャネルサーバーの登録の方が先に来る場合もある |
 | `UserPromptSubmit` | `working`。`lastPrompt` を更新 |
-| `PermissionRequest` | `permission`。`PreToolUse` の 1〜56ms 後に発火する（実測）。`Notification` の `permission_prompt` は約 6 秒遅れるため使わない |
+| `PermissionRequest` | `permission`（`tool_name` が `AskUserQuestion` のときは `question` = 質問待ち。ADR 0010）。`PreToolUse` の 1〜56ms 後に発火する（実測）。`Notification` の `permission_prompt` は約 6 秒遅れるため使わない |
 | `Notification`（`idle_prompt`） | 状態は変えない（`Stop` の約 60 秒後に来るだけ） |
-| `PostToolUse` | `permission` から `working` へ戻す（許可後にツールが終わった合図）。`PreToolUse` は許可プロンプトより前に発火するため使わない |
+| `PostToolUse` | `permission`・`question` から `working` へ戻す（許可後にツールが終わった合図）。`PreToolUse` は許可プロンプトより前に発火するため使わない |
 | （許可を**拒否**したとき、または **Esc で中断**したとき） | **フックの合図がない**（公式ドキュメントと実機で確認済み）。`Stop`・`PostToolUse`・`PostToolUseFailure`・`PermissionDenied` のいずれも来ない。会話ログの定期確認で補い、`waiting` に戻す（ADR 0007、下記「中断・拒否の検知」） |
 | `Stop` | `waiting` |
 | `SessionEnd` | 一覧から外す。`/exit` で発火する（`reason=prompt_input_exit`）。Ctrl+C での終了では来なかった（1 回のみ）。強制終了の検知は `/poll` の切断で行う |
@@ -88,7 +88,7 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 - 場所: `<CLAUDE_CONFIG_DIR>/sessions/<pid>.json`（アカウントが不明なら `~/.claude/sessions`）。`sessionId` で対応づける
 - 読む項目: `sessionId`・`status`（`busy` / `idle` / `waiting`）・`statusUpdatedAt`
 - 対象: Hub が把握している全セッション。約 0.5 秒ごと
-- 反映: `busy` → 作業中、`idle` → 返答待ち、`waiting` → 許可待ち。**`stateSince` より新しい変化だけ**を採用する（フックを上書きしない）
+- 反映: `busy` → 作業中、`idle` → 返答待ち、`waiting` → `waitingFor` が `input needed` なら質問待ち、それ以外は許可待ち（ADR 0010）。**`stateSince` より新しい変化だけ**を採用する（フックを上書きしない）
 - 再起動後に仮置きしたセッション（`unverified`）は、時刻を問わず実際の状態に置き換え、`stateSince` も `statusUpdatedAt` にする（AC-001-6 の精度向上）
 - 失敗時: 読めない・形式が違う場合は何もしない。補助であり、状態の主はフック
 
@@ -111,7 +111,7 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 
 ## 画面
 - 状態の保持: 受け取った一覧を React の状態として持つ
-- 表示: アカウントごとにグループ化し、グループ内を「許可待ち → 返答待ち → 作業中、同じ状態の中は `stateSince` の新しい順」に並べる
+- 表示: アカウントごとにグループ化し、グループ内を「許可待ち → 質問待ち → 返答待ち → 作業中、同じ状態の中は `stateSince` の新しい順」に並べる
 - 件数サマリーとタブのタイトル（`document.title`）は、一覧から導出する
 - 絞り込み（すべて／要対応のみ）と折りたたみは画面側の状態。保存の要否は未決（spec の未決事項）
 

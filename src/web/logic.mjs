@@ -1,11 +1,12 @@
 // 画面の表示ロジック（React に依存しない純粋な関数）。仕様: specs/30-features/001-session-list/spec.md
 //  - 並び順・グループ化・件数・経過時間・タイトル（AC-001-9, AC-008-*, AC-010-*）
 
-export const STATE_LABEL = { permission: '許可待ち', waiting: '返答待ち', working: '作業中' }
-const STATE_ORDER = { permission: 0, waiting: 1, working: 2 }
+export const STATE_LABEL = { permission: '許可待ち', question: '質問待ち', waiting: '返答待ち', working: '作業中' }
+// 人の応答で止まっているものを上に: 許可待ち → 質問待ち → 返答待ち → 作業中
+const STATE_ORDER = { permission: 0, question: 1, waiting: 2, working: 3 }
 
-// 要対応 = 返答待ち・許可待ち
-export const isAttention = (session) => session.state === 'permission' || session.state === 'waiting'
+// 要対応 = 許可待ち・質問待ち・返答待ち（作業中以外）
+export const isAttention = (session) => session.state !== 'working'
 
 // Hub からのメッセージを一覧（Map: sessionId -> session）に適用する。元の Map は変更しない
 export const reduceMessage = (sessions, message) => {
@@ -25,7 +26,7 @@ export const reduceMessage = (sessions, message) => {
   }
 }
 
-// 許可待ち → 返答待ち → 作業中。同じ状態の中は、状態になった時刻が新しい順（AC-001-9）
+// 許可待ち → 質問待ち → 返答待ち → 作業中。同じ状態の中は、状態になった時刻が新しい順（AC-001-9）
 export const sortSessions = (sessions) =>
   [...sessions].sort(
     (a, b) =>
@@ -35,7 +36,7 @@ export const sortSessions = (sessions) =>
   )
 
 export const countStates = (sessions) => {
-  const counts = { permission: 0, waiting: 0, working: 0, total: 0 }
+  const counts = { permission: 0, question: 0, waiting: 0, working: 0, total: 0 }
   for (const s of sessions) {
     if (s.state in counts) counts[s.state] += 1
     counts.total += 1
@@ -92,6 +93,6 @@ export const groupByAccount = (sessions, filter = 'all') => {
 
 // タブのタイトル: 要対応が 1 件以上なら件数を先頭に付ける（AC-010-4）
 export const titleFor = (counts) => {
-  const n = counts.permission + counts.waiting
+  const n = counts.permission + counts.question + counts.waiting
   return n > 0 ? `(${n}) Coders Hub` : 'Coders Hub'
 }

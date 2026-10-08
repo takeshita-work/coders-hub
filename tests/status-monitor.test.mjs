@@ -83,6 +83,16 @@ describe('applyStatus（ストアの判定）', () => {
     assert.equal(store.get('s1').state, 'waiting')
   })
 
+  it('ADR 0010: waiting は waitingFor で、質問待ち（input needed）と許可待ち（permission prompt）に分ける', () => {
+    store.applyHookEvent(hook('Stop'))
+    store.applyStatus('s1', { status: 'waiting', waitingFor: 'input needed', at: 3_000 })
+    assert.equal(store.get('s1').state, 'question')
+    store.applyStatus('s1', { status: 'waiting', waitingFor: 'permission prompt', at: 4_000 })
+    assert.equal(store.get('s1').state, 'permission')
+    store.applyStatus('s1', { status: 'waiting', at: 5_000 }) // 理由が不明なら許可待ち
+    assert.equal(store.get('s1').state, 'permission')
+  })
+
   it('変化は購読者へ通知される', () => {
     store.applyHookEvent(hook('UserPromptSubmit', { prompt: 'x' }))
     changes.length = 0
@@ -123,6 +133,13 @@ describe('createStatusMonitor（実ファイルの読み取り）', () => {
     await monitor.tick()
     assert.equal(store.get('s1').state, 'working')
     assert.equal(store.get('other'), null)
+  })
+
+  it('質問待ち（waiting / input needed）を反映する', async () => {
+    start('s1', 'Stop')
+    writeStatus(100, 's1', 'waiting', clock + 1_000, { waitingFor: 'input needed' })
+    await monitor.tick()
+    assert.equal(store.get('s1').state, 'question')
   })
 
   it('許可待ち（waiting / permission prompt）を反映する', async () => {
