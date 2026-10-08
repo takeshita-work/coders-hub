@@ -9,6 +9,7 @@
 ```powershell
 cd "D:\organization\works\#tools\#web-app\coders-hub"
 npm install
+npm run build     # 画面をビルドする（dist/web/）。画面を変えたら再実行する
 npm test          # 任意。全件が通ること
 ```
 
@@ -48,7 +49,7 @@ claude mcp add --scope user coders-hub -- node "D:/organization/works/#tools/#we
 1. `claude` を普通に起動する（開発用フラグも承認画面も要らない）。
 2. 最初のセッションの起動時に、チャネルサーバーが Hub 本体を自動で起動する（ADR 0004）。手動で起動する場合は `npm start`。
 3. ブラウザで `http://127.0.0.1:8766/` を開く。
-   - 画面（React）の実装前は、受け取った一覧を JSON で表示する簡易ページが出る。
+   - ビルドしていない場合は、受け取った一覧を JSON で表示する簡易ページが出る。
 
 Hub のポートは `127.0.0.1` の 8765（内部）と 8766（画面）。環境変数 `CODERS_HUB_INTERNAL_PORT`、`CODERS_HUB_UI_PORT` で変更できる。すべての `claude`、`hook.mjs`、`channel.mjs` で同じ値にそろえること。
 
