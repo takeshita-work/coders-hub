@@ -17,9 +17,11 @@
   - 結果: `PostToolUse` を使う。`PreToolUse` は許可プロンプトより**前**に発火するため、復帰の合図にならない。
   - 未確認: 許可を**拒否**したときに来るイベント（`PostToolUse` が来ない可能性）。T0-10 で確認する。
 - [x] T0-4 ★ セッション ID の一致: フックの `session_id` と、MCP サーバーの `CLAUDE_CODE_SESSION_ID` が同じ値か確認する（検証 #3）
-  - 結果（フック側のみ）: フックの入力の `session_id` と、フックのプロセスの環境変数 `CLAUDE_CODE_SESSION_ID` は一致した。MCP サーバー側の環境変数は T0-5 で確認する。
-- [ ] T0-5 ★ 通常の MCP サーバーとして起動: チャネル機能を宣言しない最小の MCP サーバーを `--mcp-config` で起動し、開発用フラグ・警告画面なしで動くか確認する（検証 #4、ADR 0006）
-- [ ] T0-6 ★ 強制終了の検知: `claude` をタスクキル／ウィンドウを閉じて終了したとき、MCP サーバー（チャネルサーバー）の stdin クローズ・終了と、本体側の `/poll` 接続の切断が検知できるか確認する（検証 #5）
+  - 結果: フックの入力の `session_id`、フックのプロセスの環境変数、MCP サーバーの環境変数 `CLAUDE_CODE_SESSION_ID` の三者が一致した。`CLAUDE_CONFIG_DIR`・`CLAUDE_PROJECT_DIR` も MCP サーバーに渡る。別アカウントでの確認は後回し
+- [x] T0-5 ★ 通常の MCP サーバーとして起動: チャネル機能を宣言しない最小の MCP サーバーを `--mcp-config` で起動し、開発用フラグ・警告画面なしで動くか確認する（検証 #4、ADR 0006）
+  - 結果: `.mcp.json` ＋ `settings.local.json` の `enabledMcpjsonServers` で、フラグも承認画面もなしに起動し、`/mcp` で connected になった。`--mcp-config` 経由は未試行。MCP サーバーはフックの `SessionStart` の約 3 秒後に起動する
+- [x] T0-6 ★ 強制終了の検知（Ctrl+C のみ確認。`taskkill`／ウィンドウを閉じる場合は未確認）: `claude` をタスクキル／ウィンドウを閉じて終了したとき、MCP サーバー（チャネルサーバー）の stdin クローズ・終了と、本体側の `/poll` 接続の切断が検知できるか確認する（検証 #5）
+  - 結果: Ctrl+C で終了すると、MCP サーバーの stdin が閉じ（`end`）、プローブは自分で終了した（孤児は残らない）。Hub 側は約 22ms 後に `/poll` の切断（`answered:false`）を検知した。`SessionEnd` のフックは来なかった。shutdown 時の `parentAlive` は true（`ppid` は `claude` 本体と別のプロセスの可能性）
 - [x] T0-7 ★ フックの起動遅延: Windows で `node` によるフックの起動〜送信の所要時間を計測し、3 秒以内に収まるか確認する（検証 #6）。`PreToolUse`／`PostToolUse` の頻度による体感への影響も見る
   - 結果: `node` の起動から記録まで 20〜27ms（約 40 件）。`async` で登録した `PreToolUse`／`PostToolUse` による体感の遅延は確認されなかった。ただし、本体への送信（HTTP）を含む遅延は T4-1 で再計測する。
 - [x] T0-8 ★ `SessionStart` の挙動: `async` のフックとして登録しても起動をふさがないか確認する（検証 #7）

@@ -4,6 +4,9 @@ dist/
 # 個人用の Claude Code 設定（検証用フックなど）
 .claude/settings.local.json
 
+# 検証スパイク用の MCP 設定（絶対パスを含む）
+.mcp.json
+
 # 検証スパイクのログ
 spikes/logs/
 
