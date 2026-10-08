@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+# 個人用の Claude Code 設定（検証用フックなど）
+.claude/settings.local.json
+
+# 検証スパイクのログ
+spikes/logs/
+
+# 検証スパイクの作業用フォルダ
+spikes/sandbox/

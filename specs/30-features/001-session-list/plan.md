@@ -43,10 +43,12 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 |---|---|
 | `SessionStart` | セッションを登録（状態は `waiting`）。チャネルサーバーの登録の方が先に来る場合もある |
 | `UserPromptSubmit` | `working`。`lastPrompt` を更新 |
-| `Notification`（許可待ち） | `permission` |
-| `PreToolUse` または `PostToolUse` | `permission` から `working` へ戻す（許可後にツールが動いた合図）。使うイベントは要検証 |
+| `PermissionRequest` | `permission`。`PreToolUse` の 1〜56ms 後に発火する（実測）。`Notification` の `permission_prompt` は約 6 秒遅れるため使わない |
+| `Notification`（`idle_prompt`） | 状態は変えない（`Stop` の約 60 秒後に来るだけ） |
+| `PostToolUse` | `permission` から `working` へ戻す（許可後にツールが終わった合図）。`PreToolUse` は許可プロンプトより前に発火するため使わない |
+| （許可を**拒否**したとき、または **Esc で中断**したとき） | **フックの合図がない**（公式ドキュメントと実機で確認済み）。`Stop`・`PostToolUse`・`PostToolUseFailure`・`PermissionDenied` のいずれも来ない。会話ログの定期確認で補い、`waiting` に戻す（ADR 0007、下記「中断・拒否の検知」） |
 | `Stop` | `waiting` |
-| `SessionEnd` | 一覧から外す |
+| `SessionEnd` | 一覧から外す。`/exit` で発火する（`reason=prompt_input_exit`）。強制終了では未確認 |
 
 詳細は `../../20-design/state-model.md`。
 
@@ -59,6 +61,27 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 | `POST /poll` | `channel.mjs` | 登録・生存確認。指示がないので約 30 秒で 204 を返す |
 
 `/permission`、`/wait` は「次」の段階。API の定義は `../../20-design/api/` に書く。
+
+## 状態のちらつきの防止
+許可待ちが連続すると（複数のツール呼び出しが並ぶとき）、`PostToolUse` と次の `PermissionRequest` の間が 12〜26ms しかない。`permission` → `working` → `permission` と切り替わると、画面がちらつく。
+- 案: 画面側で、`permission` から `working` への遷移の反映を数百 ms 遅らせる（その間に `permission` に戻れば反映しない）
+- 本体の状態自体は、イベントの順序どおりに保つ（遅延は表示だけ）
+
+## 中断・拒否の検知（ADR 0007）
+フックの合図がない「許可の拒否」と「Esc による中断」を、会話ログ（JSONL）で補う。
+
+- 対象: 状態が `permission` または `working` のセッションだけ。`waiting` は確認しない
+- 場所: 各フックの入力にある `transcript_path`（本体がセッションごとに最新のパスを保持する）
+- 方法: 約 1 秒ごとに、ログの末尾（数 KB）だけを読む。前回の読み取り位置からの追記分だけを見る案
+- 検知する記録:
+  - 拒否: `[Request interrupted by user for tool use]`（実機で確認済み）
+  - 許可ダイアログでの Esc: `[Request interrupted by user]`（実機で確認済み）
+  - 両方に当てはまる前方一致 `[Request interrupted by user` で判定する
+  - 通常の作業中（ダイアログなし）の Esc は同じ文言と推測。T6-2 の実機確認で確かめる
+- 検知したら: 状態を `waiting` に戻し、`stateSince` をログの時刻（または検知時刻）にする
+- 他のイベントとの競合: 検知の前に `Stop`／`PostToolUse`／`UserPromptSubmit` が来たらそちらを優先し、確認を止める
+- 失敗時: ファイルが読めない、文言が見つからない場合は何もしない（現状どおり、次の `UserPromptSubmit` まで残る）。補助であり、状態の主はフック
+- テスト: ログの読み取りと文言の判定を単体テストする（実機のログから切り出したサンプルを使う）
 
 ## 生存確認と削除（NFR-006）
 - 正常終了: `SessionEnd` で即時に外す

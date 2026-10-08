@@ -7,10 +7,17 @@
 - [ ] asyncRewake フックの `timeout` の上限値
 - [ ] 作業中のセッションに asyncRewake フックが exit 2 で終わった場合の扱い
 - [ ] PermissionRequest フックとターミナルのダイアログの表示順序
-- [ ] `CLAUDE_CODE_SESSION_ID` とフックの `session_id` が一致するか
+- [ ] `CLAUDE_CODE_SESSION_ID` とフックの `session_id` が一致するか → フックのプロセスの環境変数とは一致を確認済み。MCP サーバー側は未確認（T0-5）
 - [ ] Codex CLI など他ツールのフック仕様
-- [ ] MVP で許可待ちを検知できるか: Channels の許可中継を使わず、`Notification` フックだけで「許可待ち」と「アイドル」を区別できるか（`001-session-list`）
-- [ ] 許可後に `permission` から `working` へ戻す合図に使うフック（`PreToolUse`／`PostToolUse`）の挙動と、呼び出し頻度による負荷（`001-session-list/plan.md`）
+- [x] MVP で許可待ちを検知できるか: `Notification` の `notification_type`（`permission_prompt`／`idle_prompt`）で区別できる（`001-session-list/tasks.md` T0-2）
+- [x] 許可待ちの検知が遅い: `Notification` は約 6 秒遅れるが、`PermissionRequest` は `PreToolUse` の 1〜56ms 後に発火する。`PermissionRequest` を使う（T0-10）
+- [x] 許可の**拒否**や **Esc による中断**のあとの状態の戻し方 → 会話ログの定期確認で補う（ADR 0007、Accepted）。経緯: 公式ドキュメントでも、この場合に発火するフックはない（`Stop` は中断で実行されない。`PostToolUseFailure` は権限拒否で発火しない。`PermissionDenied` は auto モード限定）。次の `UserPromptSubmit` まで `permission`／`working` のままになる。対処を決める（`001-session-list/plan.md`）
+  - 検討結果: Channels は不可（公式ドキュメントに、プロンプトの解決済み・中断を知らせる通知の記載がない。受け取れるのは開き始めの `permission_request` のみ）
+  - 有力: 会話ログ（JSONL、各フックの入力の `transcript_path`）の末尾を、`permission`／`working` のセッションだけ定期的に確認する。実機のログでは、拒否の 1.9 秒後（`PermissionRequest` の 39:14.9 に対し 39:16.68）に `tool_result`（`User rejected tool use`、`is_error`）と `[Request interrupted by user for tool use]` が記録されていた。Esc 中断の記録は未確認
+  - 懸念: JSONL は内部フォーマット（NFR-008）。補助用途に限り、読めなくなっても状態が戻らないだけ（現状と同じ）にとどめる
+- [ ] 強制終了で `SessionEnd` が発火しないことの確認（`/exit` では発火を確認済み）
+- [ ] 複数アカウントがフックで区別できるか（今回のログは 1 アカウントのみ）
+- [x] 許可後の復帰の合図: `PostToolUse` を使う。`PreToolUse` は許可プロンプトより前に発火する（T0-3）
 - [ ] Windows で `claude` を強制終了したとき、チャネルサーバーの `/poll` の接続切断を本体が検知できるか（NFR-006）
 - [ ] Windows でフックの `node` 起動の遅延が、3 秒以内（NFR-003）に収まるか
 

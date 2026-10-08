@@ -20,3 +20,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0004 | Hub 本体は単一プロセスとし、チャネルサーバーが接続しに行く | Accepted |
 | 0005 | 外部公開の方式（Cloudflare Tunnel / Tailscale） | Proposed |
 | 0006 | MVP の生存確認にチャネルサーバーを使う | Accepted |
+| 0007 | 拒否・中断の検知に会話ログ（JSONL）の定期確認を使う | Accepted |
