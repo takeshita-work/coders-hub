@@ -9,6 +9,10 @@
 - [ ] PermissionRequest フックとターミナルのダイアログの表示順序
 - [ ] `CLAUDE_CODE_SESSION_ID` とフックの `session_id` が一致するか
 - [ ] Codex CLI など他ツールのフック仕様
+- [ ] MVP で許可待ちを検知できるか: Channels の許可中継を使わず、`Notification` フックだけで「許可待ち」と「アイドル」を区別できるか（`001-session-list`）
+- [ ] 許可後に `permission` から `working` へ戻す合図に使うフック（`PreToolUse`／`PostToolUse`）の挙動と、呼び出し頻度による負荷（`001-session-list/plan.md`）
+- [ ] Windows で `claude` を強制終了したとき、チャネルサーバーの `/poll` の接続切断を本体が検知できるか（NFR-006）
+- [ ] Windows でフックの `node` 起動の遅延が、3 秒以内（NFR-003）に収まるか
 
 ## 要決定（仕様）
 - [x] 利用者の範囲: 自分専用に決定（`../00-product/vision.md`）。公開は想定しない
