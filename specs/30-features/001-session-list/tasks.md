@@ -78,7 +78,7 @@
 
 - [x] T3-7 状態ファイルの定期確認（ADR 0009）: `src/hub/status-monitor.mjs`。約 0.5 秒ごとに、把握しているセッションのアカウントの `sessions/*.json` を読む。読めなければ何もしない
 
-- [x] T3-8 質問待ち（ADR 0010）: 4 つ目の状態 `question`。`AskUserQuestion` の `PermissionRequest`、状態ファイルの `waitingFor: input needed` で判定。並び・件数・タイトル・色・「要対応」に反映（全 150 件）。実機の確認は `acceptance.md` の手順 11
+- [x] T3-8 質問待ち（ADR 0010）: 4 つ目の状態 `question`。`AskUserQuestion` の `PermissionRequest`、状態ファイルの `waitingFor: input needed` で判定。並び・件数・タイトル・色・「要対応」に反映（全 150 件）。実機で確認済み（`acceptance.md` の手順 11: 質問待ちの表示、質問の画面での Esc）
 
 ## フェーズ 4: 接続部品
 
