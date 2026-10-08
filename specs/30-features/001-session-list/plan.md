@@ -21,7 +21,7 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 | `hook.mjs` | フックの入力（stdin の JSON）を `POST /event` で本体へ送る。本体が落ちていても `claude` の動作を妨げない（失敗は黙って終了、短いタイムアウト） |
 | `channel.mjs` | 起動時に本体へ自己登録し、ロングポーリングで生存を知らせる。必要なら本体を自動起動する（ADR 0004）。MVP は指示・許可を扱わない（ADR 0006） |
 | Hub 本体 `hub.mjs` | セッション一覧の保持、状態遷移、生存確認、WebSocket 配信、静的ファイル配信 |
-| 画面（React + Vite） | WebSocket で一覧を受け取り、グループ化・並べ替え・強調・絞り込み・折りたたみを行う |
+| 画面（React ＋ esbuild） | WebSocket で一覧を受け取り、グループ化・並べ替え・強調・絞り込み・折りたたみを行う |
 
 ## セッションの持つ情報（本体のメモリ上）
 
@@ -101,18 +101,21 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 - 絞り込み（すべて／要対応のみ）と折りたたみは画面側の状態。保存の要否は未決（spec の未決事項）
 
 ## 影響範囲
-新規実装のみ。既存コードはない。リポジトリ内の配置案:
+新規実装のみ。リポジトリ内の配置:
 
 ```
 src/
 ├── hub/      hub.mjs とその部品（状態管理、HTTP、WebSocket）
 ├── channel/  channel.mjs
 ├── hook/     hook.mjs
-└── web/      React + Vite の画面
+└── web/      React の画面（esbuild でバンドル）
 tests/
 ```
 
 配置先は、`docs/setup.md` の元の案（`C:\tools\coders-hub\`）と異なる。リポジトリ内に置き、起動用の設定から参照する形にする（未決）。
+
+## 設定
+ポート・期限は `src/shared/config.mjs` が一か所で定義し、環境変数（`CODERS_HUB_INTERNAL_PORT`、`CODERS_HUB_UI_PORT`、`CODERS_HUB_POLL_TIMEOUT_MS`、`CODERS_HUB_EXPIRE_MS`）で上書きできる。hook / channel / hub が共通で読む。設定ファイルは使わない。
 
 ## リスク・検証事項
 実装の前に、次を検証する。
@@ -139,7 +142,7 @@ tests/
 | 30 セッション（AC-001-4） | 擬似セッションを 30 件作る負荷確認 |
 | 実機（AC-001-5 の強制終了、状態の取得） | 実際の `claude` で手動確認し、結果を記録する |
 
-テストの名前やコメントに AC の ID（例: `AC-001-5`）を入れ、仕様と対応づける。テストランナーは未決（Node 標準の `node:test` か Vitest）。
+テストの名前やコメントに AC の ID（例: `AC-001-5`）を入れ、仕様と対応づける。テストランナーは Node 標準の `node:test`（ADR 0008）。`npm test` で `tests/` 以下を実行する。画面の部品は `react-dom/server` の描画結果で確認する。
 
 ## AC との対応
 

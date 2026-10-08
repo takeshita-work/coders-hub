@@ -31,6 +31,6 @@
 - [x] 30 セッションの一覧の整理: アカウントでグループ化（`../20-design/screens/README.md`）
 - [x] 画面への状態反映の方式: WebSocket（`../20-design/architecture.md`）
 - [x] スマホ表示のレスポンシブ対応: 次の段階（外部公開と同時）
-- [x] 画面側のフレームワーク: React + Vite（`../20-design/architecture.md`）
+- [x] 画面側のフレームワーク: React ＋ esbuild（`../20-design/architecture.md`、ADR 0008）。当初の React + Vite から変更
 - [ ] 外部公開の方式（Cloudflare Tunnel + Access／Tailscale）→ ADR 0005
 - [ ] 外部からの許可応答を「拒否のみ」に絞るか
