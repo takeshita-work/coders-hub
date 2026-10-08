@@ -35,7 +35,7 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 | `lastPrompt` | 最後のプロンプト | `UserPromptSubmit` の入力 |
 | `channelAlive` | チャネルサーバーの接続状態 | `/poll` |
 
-`sessionId` は、フックとチャネルサーバーの双方で同じ値になることが前提（未検証。下記リスク参照）。
+`sessionId` は、フックとチャネルサーバーの双方で同じ値になる（実機で確認済み）。
 
 ## 状態遷移とフック
 
@@ -48,7 +48,7 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 | `PostToolUse` | `permission` から `working` へ戻す（許可後にツールが終わった合図）。`PreToolUse` は許可プロンプトより前に発火するため使わない |
 | （許可を**拒否**したとき、または **Esc で中断**したとき） | **フックの合図がない**（公式ドキュメントと実機で確認済み）。`Stop`・`PostToolUse`・`PostToolUseFailure`・`PermissionDenied` のいずれも来ない。会話ログの定期確認で補い、`waiting` に戻す（ADR 0007、下記「中断・拒否の検知」） |
 | `Stop` | `waiting` |
-| `SessionEnd` | 一覧から外す。`/exit` で発火する（`reason=prompt_input_exit`）。強制終了では未確認 |
+| `SessionEnd` | 一覧から外す。`/exit` で発火する（`reason=prompt_input_exit`）。Ctrl+C での終了では来なかった（1 回のみ）。強制終了の検知は `/poll` の切断で行う |
 
 詳細は `../../20-design/state-model.md`。
 
@@ -85,7 +85,7 @@ claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メ�
 
 ## 生存確認と削除（NFR-006）
 - 正常終了: `SessionEnd` で即時に外す
-- 強制終了: チャネルサーバーとの `/poll` の接続が切れたら、即座に切断を検知して外す案。接続が切れたことを検知できない場合に備え、最後の `/poll` から 50 秒で外す（長いポーリングの 30 秒を超え、1 分以内に収まる値）
+- 強制終了: チャネルサーバーとの `/poll` の接続が切れたら、即座に切断を検知して外す（実機確認: `claude` の Ctrl+C 終了で stdin が閉じ、本体は約 22ms で検知した。`taskkill` は未確認）。接続が切れたことを検知できない場合に備え、最後の `/poll` から 50 秒で外す（長いポーリングの 30 秒を超え、1 分以内に収まる値）
 - 本体が再起動したら、チャネルサーバーが次の `/poll` で自己情報を送り直すので、一覧が復元される（NFR-004）。状態は再起動前の値が失われるため `waiting` として復元し、次のフックで更新される。これは仕様にない挙動なので、未決事項として spec に追記するか決める
 
 ## WebSocket（本体 → 画面）
@@ -119,13 +119,13 @@ tests/
 
 | # | 検証事項 | 影響 |
 |---|---|---|
-| 1 | `Notification` フックだけで「許可待ち」と「アイドル」を区別できるか | AC-010-2。区別できなければ、許可待ちの検知方法を変える（ADR を追加） |
+| 1 | （確認済み: `PermissionRequest` を使う）`Notification` フックだけで「許可待ち」と「アイドル」を区別できるか | AC-010-2。区別できなければ、許可待ちの検知方法を変える（ADR を追加） |
 | 2 | 許可後に `permission` から `working` に戻す合図（`PreToolUse`／`PostToolUse`）の挙動と、呼び出し頻度による負荷 | 状態の正確さ。フックは `async` で、1 回の起動が短くて済む構成にする |
-| 3 | `CLAUDE_CODE_SESSION_ID` とフックの `session_id` の一致 | 両者が違うと、セッションを同一視できない（設計全体に影響） |
-| 4 | チャネル機能を宣言しない MCP サーバーとして起動できるか。開発用フラグ・警告画面が不要か | MVP の起動手順（ADR 0006） |
-| 5 | Windows で、`claude` の強制終了時にチャネルサーバーの `/poll` の接続切断を検知できるか | NFR-006 の実現方法 |
-| 6 | Windows で、フックの `node` 起動の遅延が、3 秒以内（NFR-003）に収まるか | NFR-003 |
-| 7 | `SessionStart` フックの既知の不具合（`asyncRewake` との組み合わせ）の影響を受けないか | 登録の経路（本計画は `asyncRewake` を使わない） |
+| 3 | （確認済み: 一致）`CLAUDE_CODE_SESSION_ID` とフックの `session_id` の一致 | 両者が違うと、セッションを同一視できない（設計全体に影響） |
+| 4 | （確認済み: フラグ・承認画面なしで起動）チャネル機能を宣言しない MCP サーバーとして起動できるか。開発用フラグ・警告画面が不要か | MVP の起動手順（ADR 0006） |
+| 5 | （Ctrl+C で確認済み）Windows で、`claude` の強制終了時にチャネルサーバーの `/poll` の接続切断を検知できるか | NFR-006 の実現方法 |
+| 6 | （確認済み: 20〜46ms）Windows で、フックの `node` 起動の遅延が、3 秒以内（NFR-003）に収まるか | NFR-003 |
+| 7 | （確認済み: 影響なし）`SessionStart` フックの既知の不具合（`asyncRewake` との組み合わせ）の影響を受けないか | 登録の経路（本計画は `asyncRewake` を使わない） |
 
 結果は `../../10-requirements/open-questions.md` に反映し、判断が必要なものは ADR にする。
 

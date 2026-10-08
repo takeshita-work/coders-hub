@@ -8,7 +8,7 @@
 
 最初に行う。ここの結果で、フェーズ 1 以降の内容が変わる可能性がある。
 
-- [ ] T0-1 ★ フック入力の記録: 全対象フックで、stdin の JSON をファイルに追記するだけのスクリプトを仕込む。`SessionStart` / `UserPromptSubmit` / `Notification` / `PreToolUse` / `PostToolUse` / `Stop` / `SessionEnd` の入力を実機で記録する
+- [x] T0-1 ★ フック入力の記録: 全対象フックで、stdin の JSON をファイルに追記するだけのスクリプトを仕込む。`SessionStart` / `UserPromptSubmit` / `Notification` / `PreToolUse` / `PostToolUse` / `Stop` / `SessionEnd` の入力を実機で記録する
 - [x] T0-2 ★ 許可待ちの識別: 許可プロンプトが出たとき、`Notification` の入力で「許可待ち」と「アイドル」を区別できるか確認する（plan 検証 #1）
   - 結果: 区別できる。`notification_type` が `permission_prompt`（許可待ち）／`idle_prompt`（アイドル）。
   - 注意: `permission_prompt` の `Notification` は、許可プロンプトの約 6 秒後に来る（NFR-003 を満たせない）。許可待ちの検知には `PermissionRequest` を使う（T0-10 で確認済み）。
@@ -26,7 +26,7 @@
   - 結果: `node` の起動から記録まで 20〜27ms（約 40 件）。`async` で登録した `PreToolUse`／`PostToolUse` による体感の遅延は確認されなかった。ただし、本体への送信（HTTP）を含む遅延は T4-1 で再計測する。
 - [x] T0-8 ★ `SessionStart` の挙動: `async` のフックとして登録しても起動をふさがないか確認する（検証 #7）
   - 結果: `async` で登録した `SessionStart`（`source=startup`）は正常に発火し、起動をふさがなかった。
-- [ ] T0-10 ★ 追加検証（T0-2, T0-3 の結果から）:
+- [x] T0-10 ★ 追加検証（T0-2, T0-3 の結果から）:
   - [x] `PermissionRequest` の発火タイミング: **`PreToolUse` の 1〜56ms 後**に発火する（4 回）。一方 `Notification`（`permission_prompt`）は `PermissionRequest` の**約 6.0 秒後**（6.03 秒、6.01 秒）で一定、かつ 6 秒以内に応答すると来ない。許可待ちの検知には `PermissionRequest` を使う（NFR-003 を満たせる）
   - [x] 許可したとき: `PermissionRequest` → `PostToolUse`（応答の約 2.5 秒後）
   - [x] 拒否したとき: `PermissionRequest` の後、`PostToolUse` も `Stop` も**来ない**（拒否で処理が中断されるため）。次に来るのは、ユーザーの次の `UserPromptSubmit`。状態を `permission` から戻す合図がない（要対策）
@@ -38,12 +38,14 @@
     - 影響: 拒否だけでなく、**Esc による中断**でも `Stop` が来ないため、`working`／`permission` のまま残る
   - [x] `Notification` の 6 秒の遅延は仕様どおり: 「`permission_prompt` は、ユーザーが約 6 秒間入力していない時点で発生」（キー入力のたびに延期）。即時に検知するには `PermissionRequest` を使う、と公式に案内されている
   - 補足: `PermissionRequest` はサンドボックス化されたコマンドのネットワークリクエストでは実行されない。その場合は `permission_prompt` を使う（v2.1.246 以降）。`SessionEnd` の入力フィールド名は、実機のログでは `reason`
-  - [ ] 別のアカウント（`CLAUDE_CONFIG_DIR`）で同じディレクトリを起動し、複数アカウントが区別できることを確認する（今回のログは `.claude-takeshita.work` のみ）
+  - [ ] 別のアカウント（`CLAUDE_CONFIG_DIR`）で同じディレクトリを起動し、複数アカウントが区別できることを確認する（今回のログは `.claude-takeshita.work` のみ）。**後回し**。フェーズ 4 の結合時に実機で確認する（T6 で再確認）
 - [x] T0-11 ★ Esc 中断の記録: 作業中（長めの処理）に Esc で中断し、会話ログ（JSONL）にどの記録が残るか、何秒後に書かれるかを確認する。結果で ADR 0007 を Accepted にする
   - 結果: 許可ダイアログで Esc を押したとき、保留中の全ツール呼び出しに `User rejected tool use`（`is_error`）が並び、同じ時刻に `[Request interrupted by user]` が記録された。フックは `SessionEnd` まで何も来なかった。ADR 0007 を Accepted にした
   - 未確認: 許可ダイアログのない通常の作業中の Esc（今回のテストは `permissions.ask` の設定により、すべてダイアログ付きだった）。T6-2 の実機確認で確かめる
   - 発見: 許可待ちが連続するとき、`PostToolUse` と次の `PermissionRequest` の間は 12〜26ms。状態が一瞬 `working` に戻って再び `permission` になる。画面側で短い遅延（数百 ms）を入れてちらつきを防ぐ（plan 参照）
-- [ ] T0-9 検証結果のまとめ: `open-questions.md` を更新する。方針が変わる場合は ADR を追加し、`plan.md` と `spec.md` を直す（状態遷移表、使うフックの選定など）
+- [x] T0-9 検証結果のまとめ: `open-questions.md` を更新する。方針が変わる場合は ADR を追加し、`plan.md` と `spec.md` を直す（状態遷移表、使うフックの選定など）
+  - まとめ: 計画の根幹は変わらない（フックで状態、`/poll` で生存、ADR 0003/0004/0006/0007 のまま）。実機で確定したこと: `PermissionRequest` で許可待ち、`PostToolUse` で復帰、拒否・Esc はログの確認で補う、ID は三者一致、通常の MCP サーバーは追加操作なしで起動、強制終了は stdin 終了＋`/poll` 切断で約 22ms で検知。
+  - 未確認のまま実装に進む項目（リスクと対処）: 別アカウントの区別 → T6 で実機確認／`taskkill`・ウィンドウを閉じた場合の検知 → 50 秒の期限が保険／`SessionEnd` が強制終了で来ない → `/poll` の切断で補う／通常作業中の Esc → T6-2
 
 ## フェーズ 1: 基盤
 
