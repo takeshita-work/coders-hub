@@ -23,7 +23,7 @@ before(() => {
 after(() => fs.rmSync(dir, { recursive: true, force: true }))
 
 beforeEach(async () => {
-  hub = createHub({ config, staticDir: path.join(dir, 'static'), sweepIntervalMs: 50 })
+  hub = createHub({ config, statusMonitor: null, staticDir: path.join(dir, 'static'), sweepIntervalMs: 50 })
   ports = await hub.start()
 })
 afterEach(() => hub.stop())
@@ -207,7 +207,7 @@ describe('AC-001-6: 本体の再起動', () => {
     await hook('UserPromptSubmit', { prompt: 'x' }, 'r1')
     await hub.stop()
 
-    hub = createHub({ config, staticDir: path.join(dir, 'static'), sweepIntervalMs: 50 })
+    hub = createHub({ config, statusMonitor: null, staticDir: path.join(dir, 'static'), sweepIntervalMs: 50 })
     ports = await hub.start()
     assert.equal(hub.store.list().length, 0)
 

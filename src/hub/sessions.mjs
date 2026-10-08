@@ -9,6 +9,9 @@ const STATE_BY_EVENT = {
 // 未登録のセッションでこれらを受けたら、作業中として登録する（SessionStart より先に届いた場合など）
 const IMPLIES_WORKING = new Set(['PreToolUse', 'PostToolUse'])
 
+// claude 自身が書く sessions/<pid>.json の status（ADR 0009）。許可待ち・質問待ち（waiting）はどちらも許可待ちとして扱う
+const STATE_BY_STATUS = { busy: 'working', idle: 'waiting', waiting: 'permission' }
+
 const view = (r) => ({
   sessionId: r.sessionId,
   account: r.account,
@@ -35,6 +38,8 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
     const r = {
       sessionId, account: null, cwd: null, state, stateSince: now(),
       lastPrompt: null, transcriptPath: null, channelAlive: false, lastPollAt: null,
+      // 状態を推測で置いただけ（再起動後の復元など）。実際の状態が分かったら外す
+      unverified: false,
     }
     sessions.set(sessionId, r)
     return r
@@ -77,6 +82,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
       if (!r) {
         const initial = STATE_BY_EVENT[event] ?? (IMPLIES_WORKING.has(event) ? 'working' : 'waiting')
         r = create(id, initial)
+        r.unverified = !(event in STATE_BY_EVENT) && !IMPLIES_WORKING.has(event) && event !== 'SessionStart'
         setFields(r, { account, cwd: input.cwd, transcriptPath: input.transcript_path })
         if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = input.prompt
         emit({ type: 'added', session: view(r) })
@@ -86,6 +92,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
       const before = JSON.stringify(view(r))
       setFields(r, { account, cwd: input.cwd, transcriptPath: input.transcript_path })
       if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = input.prompt
+      if (STATE_BY_EVENT[event] || IMPLIES_WORKING.has(event) || event === 'SessionStart') r.unverified = false
       if (STATE_BY_EVENT[event]) setState(r, STATE_BY_EVENT[event])
       // 許可後にツールが終わったら作業中へ戻す。それ以外の PostToolUse では動かさない
       else if (event === 'PostToolUse' && r.state === 'permission') setState(r, 'working')
@@ -99,6 +106,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
       let r = sessions.get(sessionId)
       if (!r) {
         r = create(sessionId, 'waiting')
+        r.unverified = true
         setFields(r, { account, cwd })
         r.channelAlive = true
         r.lastPollAt = now()
@@ -135,6 +143,25 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
       if (at !== null && at < r.stateSince) return false
       const before = JSON.stringify(view(r))
       setState(r, 'waiting', at ?? now())
+      commit(r, before)
+      return true
+    },
+
+    // claude 自身の状態ファイル（sessions/<pid>.json）の status を反映する（ADR 0009）。at: statusUpdatedAt（ミリ秒）
+    // フックで分かっている状態より新しい変化だけを採用する。推測で置いた状態（unverified）は、時刻を問わず置き換える
+    applyStatus(sessionId, { status, at = null }) {
+      const r = sessions.get(sessionId)
+      const target = STATE_BY_STATUS[status]
+      if (!r || !target) return false
+      const before = JSON.stringify(view(r))
+      if (r.unverified) {
+        r.state = target
+        r.stateSince = typeof at === 'number' && at <= now() ? at : now()
+        r.unverified = false
+      } else {
+        if (r.state === target || typeof at !== 'number' || at <= r.stateSince) return false
+        setState(r, target, at)
+      }
       commit(r, before)
       return true
     },

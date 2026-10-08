@@ -8,6 +8,7 @@ import { WebSocketServer } from 'ws'
 import { loadConfig } from '../shared/config.mjs'
 import { createStore } from './sessions.mjs'
 import { createTranscriptMonitor } from './monitor.mjs'
+import { createStatusMonitor } from './status-monitor.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const MAX_BODY_BYTES = 1_000_000
@@ -94,6 +95,9 @@ export const createHub = ({
   sweepIntervalMs = 5000,
   monitorIntervalMs = 1000,
   monitor = createTranscriptMonitor({ store, intervalMs: monitorIntervalMs }),
+  statusIntervalMs = 500,
+  // null にすると、claude の状態ファイルを見ない（テスト用）
+  statusMonitor = createStatusMonitor({ store, intervalMs: statusIntervalMs }),
   log = () => {},
 } = {}) => {
   // ---- 内部 API（hook / channel → Hub） ----
@@ -239,11 +243,13 @@ export const createHub = ({
       }, sweepIntervalMs)
       sweepTimer.unref()
       monitor.start()
+      statusMonitor?.start()
       return { internalPort, uiPort }
     },
     async stop() {
       clearInterval(sweepTimer)
       monitor.stop()
+      statusMonitor?.stop()
       unsubscribe()
       for (const client of wss.clients) client.terminate()
       internal.closeAllConnections()

@@ -22,3 +22,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0006 | MVP の生存確認にチャネルサーバーを使う | Accepted |
 | 0007 | 拒否・中断の検知に会話ログ（JSONL）の定期確認を使う | Accepted |
 | 0008 | 画面のビルドに esbuild を使い、テストは node:test にする | Accepted |
+| 0009 | 状態のずれの補正に、claude 自身の状態ファイル（sessions/<pid>.json）の status を使う | Accepted |

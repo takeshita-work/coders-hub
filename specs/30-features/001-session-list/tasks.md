@@ -63,6 +63,8 @@
 - [x] T2-5 テスト: 状態遷移、期限による削除、未登録の `sessionId` のイベントを受けたときの扱い、登録前後のイベントの順序の入れ替わり
   - 実装: `src/hub/sessions.mjs`（状態管理）、`src/hub/transcript.mjs`（中断の判定）。テスト: `tests/sessions.test.mjs`、`tests/transcript.test.mjs`（`npm test`、全 42 件）
 
+- [x] T2-7 状態ファイルの反映（ADR 0009）: `applyStatus`（フックより新しい変化だけ採用、再起動後の仮置きは置き換え）。テスト: `tests/status-monitor.test.mjs`
+
 ## フェーズ 3: Hub 本体の入出力
 
 - [x] T3-1 内部 API（127.0.0.1:8765）: `GET /health`、`POST /event`、`POST /poll`（約 30 秒のロングポーリング、204）
@@ -73,6 +75,8 @@
 - [x] T3-5 結合テスト: 本体を起動して `/event`・`/poll` を叩き、WebSocket の配信を確認する（AC-001-1, 3, 6）
   - 実装: `src/hub/hub.mjs`（入出力）、`src/hub/monitor.mjs`（会話ログの確認）、`src/hub/main.mjs`（`npm start`）。テスト: `tests/hub.test.mjs`、`tests/monitor.test.mjs`（`npm test` で全 66 件）
   - 追加した依存: `ws`（WebSocket）。`/bye`（チャネルサーバーの終了通知）と、WebSocket の Origin 検査も入れた
+
+- [x] T3-7 状態ファイルの定期確認（ADR 0009）: `src/hub/status-monitor.mjs`。約 0.5 秒ごとに、把握しているセッションのアカウントの `sessions/*.json` を読む。読めなければ何もしない
 
 ## フェーズ 4: 接続部品
 
@@ -104,7 +108,7 @@
 
 - [x] T6-1 負荷確認: 擬似セッション 30 件で、一覧の表示・更新を確認する（AC-001-4）
   - 結果（`tests/load.test.mjs`）: 30 件の同時接続・一斉更新の反映 34ms、330 件のイベント 224ms、30 行の描画 17.5ms、30 件の一斉切断の反映 27ms。いずれも要件（3 秒以内）に対して十分な余裕がある
-- [ ] T6-2 実機の通し確認（手順と結果の記入欄は `acceptance.md` の 2）: 複数アカウント・複数セッションで、状態の変化、反映時間（3 秒以内）、終了・強制終了時の削除（1 分以内）、本体の再起動後の復元を確認する（AC-001-3, 5, 6）
+- [ ] T6-2 実機の通し確認（手順と結果の記入欄は `acceptance.md` の 2）。進捗: 手順 2〜5 は完了（通常の作業中の Esc の問題は ADR 0009 で解決）。残り: 手順 6〜10（複数アカウントの同時表示は確認済み、強制終了、Hub の再起動、自動起動した Hub の存続）: 複数アカウント・複数セッションで、状態の変化、反映時間（3 秒以内）、終了・強制終了時の削除（1 分以内）、本体の再起動後の復元を確認する（AC-001-3, 5, 6）
 - [x] T6-3 受け入れ条件の確認: spec の AC を一つずつ確認し、テストとの対応を整理する（`acceptance.md` の 1。全 AC がテストか実機手順に対応している）
 - [x] T6-4 `docs/setup.md` を実際の手順に更新し、`reference-code.md` の叩き台コードを削除する（`setup.md` はフェーズ 4・5 で更新済み。`reference-code.md` を削除し、参照を外した）
 - [ ] T6-5 `spec.md` のステータスを `Implemented` にし、`open-questions.md` を整理する

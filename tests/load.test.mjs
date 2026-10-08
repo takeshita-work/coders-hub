@@ -15,7 +15,7 @@ const account = (i) => ['C:', 'Users', 'yuya', `.claude-acc${i % 3}`].join(BS)
 
 let hub, ports, ws, sessions, messages
 before(async () => {
-  hub = createHub({ config: { host: '127.0.0.1', internalPort: 0, uiPort: 0, pollTimeoutMs: 30_000, expireMs: 50_000 } })
+  hub = createHub({ statusMonitor: null, config: { host: '127.0.0.1', internalPort: 0, uiPort: 0, pollTimeoutMs: 30_000, expireMs: 50_000 } })
   ports = await hub.start()
   sessions = new Map()
   messages = 0

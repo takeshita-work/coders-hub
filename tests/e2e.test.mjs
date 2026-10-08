@@ -12,7 +12,7 @@ const ACCOUNT = 'C:\\Users\\yuya\\.claude-e2e'
 
 let hub, env
 before(async () => {
-  hub = createHub({ config: { host: '127.0.0.1', internalPort: 0, uiPort: 0, pollTimeoutMs: 2000, expireMs: 5000 } })
+  hub = createHub({ statusMonitor: null, config: { host: '127.0.0.1', internalPort: 0, uiPort: 0, pollTimeoutMs: 2000, expireMs: 5000 } })
   const ports = await hub.start()
   env = {
     ...process.env,
