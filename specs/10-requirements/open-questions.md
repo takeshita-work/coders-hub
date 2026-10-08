@@ -15,10 +15,10 @@
   - 検討結果: Channels は不可（公式ドキュメントに、プロンプトの解決済み・中断を知らせる通知の記載がない。受け取れるのは開き始めの `permission_request` のみ）
   - 有力: 会話ログ（JSONL、各フックの入力の `transcript_path`）の末尾を、`permission`／`working` のセッションだけ定期的に確認する。実機のログでは、拒否の 1.9 秒後（`PermissionRequest` の 39:14.9 に対し 39:16.68）に `tool_result`（`User rejected tool use`、`is_error`）と `[Request interrupted by user for tool use]` が記録されていた。Esc 中断の記録は未確認
   - 懸念: JSONL は内部フォーマット（NFR-008）。補助用途に限り、読めなくなっても状態が戻らないだけ（現状と同じ）にとどめる
-- [ ] 強制終了で `SessionEnd` が発火しないことの確認 → Ctrl+C での終了では `SessionEnd` が来なかった（1 回のみ。`async` のフックが終了で打ち切られた可能性もある）。`taskkill` は未確認。いずれにせよ `/poll` の切断で補う（T0-6）
-- [ ] 複数アカウントがフックで区別できるか（今回のログは 1 アカウントのみ）
+- [x] 強制終了で `SessionEnd` が発火しないこと → Ctrl+C での終了では来なかった（1 回のみ。`async` のフックが終了で打ち切られた可能性もある）。`SessionEnd` に頼らず、`/poll` の切断で検知する（ウィンドウを閉じる・`taskkill /F` でも、すぐ消えることを実機で確認。T6-2）
+- [x] 複数アカウントの区別: フックの `CLAUDE_CONFIG_DIR` と、チャネルサーバーの `CLAUDE_CONFIG_DIR` で区別できる。`.claude-takeshita.work` と `.claude-soilook` が別グループで同時に表示されることを実機で確認（T6-2）
 - [x] 許可後の復帰の合図: `PostToolUse` を使う。`PreToolUse` は許可プロンプトより前に発火する（T0-3）
-- [x] Windows で `claude` を Ctrl+C で終了したとき、チャネルサーバーの stdin が閉じ、`/poll` の切断を本体が約 22ms で検知できた（NFR-006、T0-6）。`taskkill`／ウィンドウを閉じる場合は未確認
+- [x] Windows で `claude` を Ctrl+C で終了したとき、チャネルサーバーの stdin が閉じ、`/poll` の切断を本体が約 22ms で検知できた（NFR-006、T0-6）。ウィンドウを閉じる・`taskkill /F` も、実機で確認済み（T6-2）
 - [x] Windows でフックの `node` 起動の遅延: 起動から記録まで 20〜46ms。3 秒以内（NFR-003）に収まる（T0-7）。HTTP 送信を含む遅延は T4-1 で再計測
 
 ## 手動テストで分かったこと（T6-2）

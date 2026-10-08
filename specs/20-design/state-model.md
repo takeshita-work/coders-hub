@@ -4,11 +4,13 @@
 
 ## セッションの状態
 
-| 状態 | 遷移のきっかけ（フック） |
+| 状態 | 遷移のきっかけ |
 |---|---|
-| 作業中 | `UserPromptSubmit` |
-| 返答待ち | `Stop` |
-| 許可待ち | `Notification`（許可）／ Channels の許可リクエスト |
+| 作業中 | `UserPromptSubmit`（許可後は `PostToolUse`） |
+| 返答待ち | `Stop`。許可の拒否・Esc による中断は、会話ログ（ADR 0007）と状態ファイル（ADR 0009）で補う |
+| 許可待ち | `PermissionRequest`（`Notification` は約 6 秒遅れるので使わない） |
+
+状態の主はフック（ADR 0003）。ずれの補正は、`claude` 自身の状態ファイル `sessions/<pid>.json` の `status`（ADR 0009）と、会話ログ（ADR 0007）。遷移表と詳細は `../30-features/001-session-list/plan.md`。指示送信・許可応答の中継（Channels）は「次」の段階。
 
 遷移図は後で追加する（`drawio` スキルで作成可）。
 

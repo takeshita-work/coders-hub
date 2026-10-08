@@ -1,6 +1,6 @@
 # 001 セッション一覧 実装計画
 
-- ステータス: Draft
+- ステータス: Implemented
 - 対応 spec: ./spec.md
 - 関連 ADR: 0003, 0004, 0006
 - 参考: `../../20-design/architecture.md`、`../../../docs/research/claude-code-mechanisms.md`
