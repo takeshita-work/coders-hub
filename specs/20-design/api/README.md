@@ -22,7 +22,7 @@
   "input": { "session_id": "...", "cwd": "...", "transcript_path": "...", "prompt": "..." }
 }
 ```
-- `event`: フック名（必須）。`input`: フックの標準入力の JSON をそのまま（必須。`session_id` がなければ無視される）
+- `event`: フック名（必須）。`input`: フックの標準入力の JSON（必須。`session_id` がなければ無視される）。`hook.mjs` は大きい項目（ツールの入出力など）を除き、`session_id`・`cwd`・`transcript_path`・`prompt`（2000 字まで）・`notification_type`・`reason`・`tool_name`・`source` だけを送る
 - `account`: 環境変数 `CLAUDE_CONFIG_DIR`（なくてもよい）
 - 状態への影響は `../../30-features/001-session-list/plan.md`「状態遷移とフック」を参照
 
