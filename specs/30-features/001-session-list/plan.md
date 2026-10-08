@@ -3,7 +3,7 @@
 - ステータス: Draft
 - 対応 spec: ./spec.md
 - 関連 ADR: 0003, 0004, 0006
-- 参考: `../../20-design/architecture.md`、`../../../docs/research/claude-code-mechanisms.md`、`../../../docs/research/reference-code.md`
+- 参考: `../../20-design/architecture.md`、`../../../docs/research/claude-code-mechanisms.md`
 
 ## 方針
 フックで状態の変化を Hub 本体へ送り、チャネルサーバーのロングポーリングで生存を確認する。Hub 本体はメモリ上でセッションの一覧を持ち、変化を WebSocket でブラウザへ即時に配信する。履歴は保存しない（NFR-009）。

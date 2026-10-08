@@ -58,15 +58,18 @@ describe('グループと並び', () => {
     assert.deepEqual(rowIds(render(state)).slice(0, 3), ['a-perm', 'a-wait', 'a-work'])
   })
 
-  it('AC-008-2: 同じアカウント・同じ cwd の複数セッションが別の行になる', () => {
-    assert.equal(rowIds(render(stateOf([s('x1', 'working', 1), s('x2', 'working', 2)]))).length, 2)
+  it('AC-008-2, AC-008-3: 同じアカウント・同じ cwd の複数セッションが別の行になり、短縮 ID で区別できる', () => {
+    const html = render(stateOf([s('aaaaaaaa-1', 'working', 1), s('bbbbbbbb-2', 'working', 2)]))
+    assert.equal(rowIds(html).length, 2)
+    assert.match(html, />aaaaaaaa</)
+    assert.match(html, />bbbbbbbb</)
   })
 })
 
 describe('要対応の強調とサマリー', () => {
   const state = stateOf([s('p', 'permission', 1), s('w1', 'waiting', 1), s('w2', 'waiting', 1), s('k', 'working', 1)])
 
-  it('AC-010-1/2: 許可待ち・返答待ち・作業中が行のクラスと文言で区別できる', () => {
+  it('AC-010-1, AC-010-2: 許可待ち・返答待ち・作業中が行のクラスと文言で区別できる', () => {
     const html = render(state)
     assert.match(html, /class="row state-permission"/)
     assert.match(html, /class="row state-waiting"/)

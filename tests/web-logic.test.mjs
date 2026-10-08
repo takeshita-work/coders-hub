@@ -67,7 +67,7 @@ describe('groupByAccount', () => {
     assert.equal(groups.find((g) => g.key === '').name, '（既定のアカウント）')
   })
 
-  it('AC-008-2/3: 同じアカウント・同じ cwd の複数セッションは別々に残る', () => {
+  it('AC-008-2, AC-008-3: 同じアカウント・同じ cwd の複数セッションは別々に残る', () => {
     const g = groupByAccount([s('x1', 'working', 1), s('x2', 'working', 2)])
     assert.equal(g[0].sessions.length, 2)
   })

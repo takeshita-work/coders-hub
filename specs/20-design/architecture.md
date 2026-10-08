@@ -1,7 +1,7 @@
 # アーキテクチャ
 
 - ステータス: Draft
-- 参考: `docs/research/claude-code-mechanisms.md`（フック・Channels の仕様）、`docs/research/reference-code.md`
+- 参考: `docs/research/claude-code-mechanisms.md`（フック・Channels の仕様）
 
 ## 構成
 

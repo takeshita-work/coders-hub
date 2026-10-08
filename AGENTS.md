@@ -12,7 +12,6 @@ Coders Hub: 複数の AI コーディングエージェント（まず Claude Co
 - 設計判断の記録: `specs/adr/`
 - Claude Code の仕組みの調査メモ: `docs/research/claude-code-mechanisms.md`（仕様ではなく参考情報）
 - セットアップ手順（下書き）: `docs/setup.md`
-- 実装前の参考コード（未検証）: `docs/research/reference-code.md`
 
 ## 開発ルール
 1. 実装前に、対象機能の `spec.md` / `plan.md` と、関連する `REQ-xxx` / ADR を読む。
