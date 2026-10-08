@@ -65,12 +65,14 @@
 
 ## フェーズ 3: Hub 本体の入出力
 
-- [ ] T3-1 内部 API（127.0.0.1:8765）: `GET /health`、`POST /event`、`POST /poll`（約 30 秒のロングポーリング、204）
-- [ ] T3-2 画面側 API（:8766）: 静的ファイルの配信と WebSocket。接続時のスナップショット、以降は差分
-- [ ] T3-3 `/poll` の接続切断の即時検知（T0-6 の結果による）
-- [ ] T3-6 会話ログの定期確認（ADR 0007）: `permission`／`working` のセッションの `transcript_path` を約 1 秒ごとに読み、T2-6 の判定へ渡す。読み取りに失敗しても本体は動き続ける
-- [ ] T3-4 内部 API の定義を `../../20-design/api/` に書く
-- [ ] T3-5 結合テスト: 本体を起動して `/event`・`/poll` を叩き、WebSocket の配信を確認する（AC-001-1, 3, 6）
+- [x] T3-1 内部 API（127.0.0.1:8765）: `GET /health`、`POST /event`、`POST /poll`（約 30 秒のロングポーリング、204）
+- [x] T3-2 画面側 API（:8766）: 静的ファイルの配信と WebSocket。接続時のスナップショット、以降は差分
+- [x] T3-3 `/poll` の接続切断の即時検知（T0-6 の結果による）
+- [x] T3-6 会話ログの定期確認（ADR 0007）: `permission`／`working` のセッションの `transcript_path` を約 1 秒ごとに読み、T2-6 の判定へ渡す。読み取りに失敗しても本体は動き続ける
+- [x] T3-4 内部 API の定義を `../../20-design/api/` に書く
+- [x] T3-5 結合テスト: 本体を起動して `/event`・`/poll` を叩き、WebSocket の配信を確認する（AC-001-1, 3, 6）
+  - 実装: `src/hub/hub.mjs`（入出力）、`src/hub/monitor.mjs`（会話ログの確認）、`src/hub/main.mjs`（`npm start`）。テスト: `tests/hub.test.mjs`、`tests/monitor.test.mjs`（`npm test` で全 66 件）
+  - 追加した依存: `ws`（WebSocket）。`/bye`（チャネルサーバーの終了通知）と、WebSocket の Origin 検査も入れた
 
 ## フェーズ 4: 接続部品
 
