@@ -24,3 +24,5 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0008 | 画面のビルドに esbuild を使い、テストは node:test にする | Accepted |
 | 0009 | 状態のずれの補正に、claude 自身の状態ファイル（sessions/<pid>.json）の status を使う | Accepted（`waiting` の扱いは 0010 で変更） |
 | 0010 | モデルからの質問で待つ状態を「質問待ち」として、4 つ目の状態にする | Accepted |
+| 0011 | チャネルサーバーは 1 つの実装で、起動引数により操作モードを切り替える | Accepted |
+| 0012 | 画面用の書き込み API を、他サイトのページから叩けないように守る | Accepted |
