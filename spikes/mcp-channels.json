@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "coders-hub-channels": {
+      "command": "node",
+      "args": ["D:/organization/works/#tools/#web-app/coders-hub/spikes/probe-channels.mjs"]
+    }
+  }
+}

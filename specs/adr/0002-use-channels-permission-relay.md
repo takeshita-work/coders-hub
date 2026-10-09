@@ -1,7 +1,7 @@
 # 0002: 許可応答に Channels の許可中継を使う
 
-- ステータス: Proposed（ADR 0001 に依存）
-- 日付: 2026-10-07
+- ステータス: Accepted
+- 日付: 2026-10-07（2026-10-09 に Windows のターミナル版で、中継の受信と応答を確認し、Proposed から Accepted に変更）
 
 ## 背景
 許可プロンプトにアプリから応答したい（REQ-004）。ターミナルのダイアログとも共存させたい（REQ-005）。
@@ -20,4 +20,5 @@ Channels の許可中継を使う。
 
 ## 影響・トレードオフ
 - ADR 0001 が覆った場合は見直しが必要。その場合の代替は、PermissionRequest フックを短いタイムアウトで使い、応答がなければターミナルに任せる方式
-- 未検証: PermissionRequest フックとダイアログの表示順序
+- 実機で確認した: 許可画面が出ると、チャネルサーバーに `notifications/claude/channel/permission_request`（`request_id`・`tool_name`・`description`・`input_preview`）が届く。`notifications/claude/channel/permission`（`request_id`・`behavior: allow`）を返すと、許可画面が消えて実行が進む
+- 未検証: 先にターミナルで応答したときの、中継側の要求の扱い（共存）。`deny` の応答。PermissionRequest フックとダイアログの表示順序

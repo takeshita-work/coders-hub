@@ -1,7 +1,7 @@
 # 0001: 指示の送信に Channels を使う
 
-- ステータス: Proposed（Windows のターミナル版での動作確認後に Accepted）
-- 日付: 2026-10-07
+- ステータス: Accepted
+- 日付: 2026-10-07（2026-10-09 に Windows のターミナル版 `claude` 2.1.295 で動作を確認し、Proposed から Accepted に変更）
 
 ## 背景
 実行中のセッションへ、時間がたってからでも指示を送る必要がある（REQ-002）。ターミナルでの操作とも共存させたい（REQ-005）。
@@ -26,4 +26,9 @@ Channels を主方式とし、asyncRewake の Stop フックを代替とする�
 - 対話的な TTY が必要。VS Code 拡張では動かない可能性がある
 - Team / Enterprise プランは管理者による有効化が必要
 - 通知に受信確認がなく、チャネルが無効だと黙って捨てられる
-- 未検証: Windows のターミナル版での動作（`../10-requirements/open-questions.md`）。動かない場合は asyncRewake を主方式に切り替える（新しい ADR で置き換える）
+- Windows のターミナル版での動作は、実機で確認した（`spikes/probe-channels.mjs`）
+  - 開発用フラグ付きで起動すると、画面に「Channels (experimental) messages from server:… inject directly in this session」と表示され、チャネルとして登録される
+  - アイドル中のセッションに通知を送ると、ユーザー入力（`origin.kind: channel`）として処理され、応答する
+  - 作業中に届いた通知はキューに入り、ターンの終わった直後（約 10 ミリ秒後）に処理される
+  - 本文は `<channel source="サーバー名">…</channel>` として渡る。会話の記録にも残る
+- `claude_start.ps1` の環境名のあとに、フラグをそのまま渡せる

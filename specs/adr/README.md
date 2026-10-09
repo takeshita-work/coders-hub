@@ -14,8 +14,8 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 
 | # | タイトル | ステータス |
 |---|---|---|
-| 0001 | 指示の送信に Channels を使う | Proposed |
-| 0002 | 許可応答に Channels の許可中継を使う | Proposed |
+| 0001 | 指示の送信に Channels を使う | Accepted |
+| 0002 | 許可応答に Channels の許可中継を使う | Accepted |
 | 0003 | 状態取得にフックを使う | Accepted |
 | 0004 | Hub 本体は単一プロセスとし、チャネルサーバーが接続しに行く | Accepted |
 | 0005 | 外部公開の方式（Cloudflare Tunnel / Tailscale） | Proposed |
