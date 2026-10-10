@@ -1,5 +1,5 @@
 // ブラウザで動く入口。Hub の WebSocket につなぎ、一覧を表示する。
-import { createElement as h, useCallback, useEffect, useState } from 'react'
+import { createElement as h, useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './components.mjs'
 import { createClient, initialState } from './client.mjs'
@@ -23,10 +23,12 @@ const Dashboard = () => {
   const [tick, setTick] = useState(Date.now())
   const [filter, setFilter] = useState(() => load('coders-hub.filter', 'all'))
   const [collapsed, setCollapsed] = useState(() => new Set(load('coders-hub.collapsed', [])))
+  const clientRef = useRef(null)
 
   useEffect(() => {
     const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
     const client = createClient({ url, onChange: setState })
+    clientRef.current = client
     client.start()
     return () => client.stop()
   }, [])
@@ -51,7 +53,12 @@ const Dashboard = () => {
     })
   }, [])
 
-  return h(App, { state, now: tick + state.offset, filter, collapsed, onFilter, onToggle })
+  // 指示の送信・取り消し・結果を閉じる（機能 002）
+  const onSend = useCallback((sessionId, text) => clientRef.current.sendInstruction(sessionId, text), [])
+  const onCancel = useCallback((sessionId, id) => clientRef.current.cancelInstruction(sessionId, id), [])
+  const onDismiss = useCallback((id) => clientRef.current.dismissInstruction(id), [])
+
+  return h(App, { state, now: tick + state.offset, filter, collapsed, onFilter, onToggle, onSend, onCancel, onDismiss })
 }
 
 createRoot(document.getElementById('root')).render(h(Dashboard))

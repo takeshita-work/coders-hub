@@ -19,46 +19,46 @@
 
 ## フェーズ 1: 待ち行列（Hub 本体のロジック）
 
-- [ ] T1-1 `instructions.mjs`: 指示の追加（検証・ID 発行）、保留、1 件ずつの払い出し（`waiting` のとき）、取り消し、状態遷移、タイムアウト、本文の破棄
-- [ ] T1-2 ストア: `controllable`（`channel: true` の `/poll` が来ているセッション）
-- [ ] T1-3 テスト（AC-002-4, 002-6, 002-8, 002-9, 002-10, 003-1〜003-4）
+- [x] T1-1 `instructions.mjs`: 指示の追加（検証・ID 発行）、保留、1 件ずつの払い出し（`waiting` のとき）、取り消し、状態遷移、タイムアウト、本文の破棄
+- [x] T1-2 ストア: `controllable`（`channel: true` の `/poll` が来ているセッション）
+- [x] T1-3 テスト（AC-002-4, 002-6, 002-8, 002-9, 002-10, 003-1〜003-4）（`instructions` 22 件）
 
 ## フェーズ 2: API と保護
 
-- [ ] T2-1 `/poll` の拡張: `channel`・`results` の受け取り、指示の応答、待機中の `/poll` を指示の追加で起こす
-- [ ] T2-2 画面用 `POST /api/sessions/:id/instructions`、`DELETE /api/sessions/:id/instructions/:id`（取り消し）
-- [ ] T2-3 書き込み API の保護（`Host`・`Origin`・`X-Coders-Hub`・`Content-Type`。ADR 0012）
-- [ ] T2-4 WebSocket の `instruction` メッセージ、`Session.controllable`・`Session.pending`
-- [ ] T2-5 `api/README.md` の更新
-- [ ] T2-6 テスト（AC-002-9, 002-11）
+- [x] T2-1 `/poll` の拡張: `channel`・`results` の受け取り、指示の応答、待機中の `/poll` を指示の追加で起こす
+- [x] T2-2 画面用 `POST /api/sessions/:id/instructions`、`DELETE /api/sessions/:id/instructions/:id`（取り消し）
+- [x] T2-3 書き込み API の保護（`Host`・`Origin`・`X-Coders-Hub`・`Content-Type`。ADR 0012）
+- [x] T2-4 WebSocket の `instruction` メッセージ、`Session.controllable`・`Session.pending`
+- [x] T2-5 `api/README.md` の更新
+- [x] T2-6 テスト（AC-002-9, 002-11）（`hub-instructions` 18 件）
 
 ## フェーズ 3: チャネルサーバー
 
-- [ ] T3-1 `channel.mjs`: 引数 `--channel`、機能の宣言、`/poll` への `channel: true`
-- [ ] T3-2 指示を `notifications/claude/channel` で通知し、結果を次の `/poll` で返す
-- [ ] T3-3 テスト（AC-002-3）。模擬の MCP クライアントで通知を受ける
+- [x] T3-1 `channel.mjs`: 引数 `--channel`、機能の宣言、`/poll` への `channel: true`
+- [x] T3-2 指示を `notifications/claude/channel` で通知し、結果を次の `/poll` で返す
+- [x] T3-3 テスト（AC-002-3）。模擬の MCP クライアントで通知を受ける（`e2e`：本物の `channel.mjs` から通知を受ける）
 
 ## フェーズ 4: 届いたことの確認
 
-- [ ] T4-1 会話ログ監視の拡張: `sent` の指示があるセッションを、約 0.5 秒で確認する
-- [ ] T4-2 記録の読み取り（`id` 属性での突き合わせ。`user`／`origin.kind: channel` は `confirmed`、`remove`／`queued_command` は `missed`）
-- [ ] T4-3 テスト（AC-002-7, 002-8, 005-3）
+- [x] T4-1 会話ログ監視の拡張: `sent` の指示があるセッションを、約 0.5 秒で確認する
+- [x] T4-2 記録の読み取り（`id` 属性での突き合わせ。`user`／`origin.kind: channel` は `confirmed`、`remove`／`queued_command` は `missed`）
+- [x] T4-3 テスト（AC-002-7, 002-8, 005-3）（`delivery` 11 件）
 
 ## フェーズ 5: 画面
 
-- [ ] T5-1 `client.mjs`: `sendInstruction`（`X-Coders-Hub` 付き）、`instruction` メッセージの反映
-- [ ] T5-2 `logic.mjs`: 指示の状態の管理（保留中・取り消し・`lost` の判定）
-- [ ] T5-3 `components.mjs`: 行の操作、入力欄、結果の表示、操作できないときの理由
-- [ ] T5-4 テスト（AC-002-1, 002-4, 002-5, 002-6, 003-3, 003-5）
+- [x] T5-1 `client.mjs`: `sendInstruction`（`X-Coders-Hub` 付き）、`instruction` メッセージの反映
+- [x] T5-2 `logic.mjs`: 指示の状態の管理（保留中・取り消し・`lost` の判定）
+- [x] T5-3 `components.mjs`: 行の操作、入力欄、結果の表示、操作できないときの理由
+- [x] T5-4 テスト（AC-002-1, 002-4, 002-5, 002-6, 003-3, 003-5）（`web-instructions` 21 件）
 
 ## フェーズ 6: 起動・導入
 
-- [ ] T6-1 起動の方法: 操作モードの MCP 設定（`--channel` 入り）と、起動時のフラグ。`scripts/print-setup.mjs` の更新
-- [ ] T6-2 `docs/setup.md` の更新（操作モードの起動手順、フラグを付け忘れたときの症状）
-- [ ] T6-3 結合テスト（`e2e`）
+- [x] T6-1 起動の方法: 操作モードの MCP 設定（`--channel` 入り）と、起動時のフラグ。`scripts/print-setup.mjs` の更新
+- [x] T6-2 `docs/setup.md` の更新（操作モードの起動手順、フラグを付け忘れたときの症状）
+- [x] T6-3 結合テスト（`e2e`）
 
 ## フェーズ 7: 実機の受け入れ
 
-- [ ] T7-1 `acceptance.md` を作り、AC と手順を対応させる
-- [ ] T7-2 実機で確認（AC-002-2, 003-1, 003-2, 005-1〜005-3 ほか）
-- [ ] T7-3 spec・plan を Implemented にし、REQ の状態を更新する
+- [x] T7-1 `acceptance.md` を作り、AC と手順を対応させる
+- [x] T7-2 実機で確認（AC-002-2, 003-1, 003-2, 005-1〜005-3 ほか）。手順 1〜9・11 は ○、10 は拒否の場合のみ確認（閉じる場合は自動テスト）、12 は重ならず未確認。結果は `acceptance.md`。確認中に見つけた 2 件（直近の発言に `<channel>` タグが出る、「失われました」の理由の文面）は修正済み
+- [x] T7-3 spec・plan を Implemented にし、REQ の状態を更新する（REQ-002・003 は Implemented。REQ-005 は許可応答の機能 003 と合わせて完了）

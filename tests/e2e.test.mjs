@@ -107,3 +107,68 @@ describe('channel.mjs', () => {
     assert.equal(await exited, 0)
   })
 })
+
+// 操作モード（--channel）: 本物の channel.mjs を MCP クライアントとして起動し、通知を受ける（機能 002）
+describe('channel.mjs --channel（操作モード）', () => {
+  it('AC-002-3: チャネル機能を宣言し、Hub の指示を id つきの通知として送る。本文は変わらず、結果が Hub に返る', async () => {
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js')
+    const { z } = await import('zod')
+
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: ['src/channel/channel.mjs', '--channel'],
+      cwd: root,
+      env: { ...env, CLAUDE_CODE_SESSION_ID: 'm1' },
+      stderr: 'inherit',
+    })
+    const client = new Client({ name: 'test-claude', version: '0' }, { capabilities: {} })
+    const received = []
+    client.setNotificationHandler(
+      z.object({ method: z.literal('notifications/claude/channel'), params: z.object({ content: z.string(), meta: z.record(z.string(), z.string()) }) }),
+      (n) => received.push(n.params),
+    )
+    try {
+      await client.connect(transport)
+      assert.deepEqual(Object.keys(client.getServerCapabilities().experimental ?? {}), ['claude/channel'])
+
+      assert.ok(await until(() => hub.store.get('m1')?.controllable), '操作モードとして登録されない')
+      hub.store.applyHookEvent({ event: 'Stop', input: { session_id: 'm1' } })
+
+      const text = '1 行目 "引用符" C:\Users\yuya\n2 行目 <tag> & `x` $HOME 日本語'
+      const seen = []
+      const unsubscribe = hub.instructions.subscribe((c) => c.sessionId === 'm1' && seen.push(c.status))
+      const { id } = hub.instructions.submit('m1', text)
+      assert.ok(await until(() => received.length === 1), '通知が届かない')
+      assert.deepEqual(received[0], { content: text, meta: { id } })
+
+      // 通知の結果が次の /poll で Hub に返り、渡した指示が sent になる
+      assert.ok(await until(() => seen.includes('sent')), '結果が Hub に返らない')
+      unsubscribe()
+    } finally {
+      await client.close().catch(() => {})
+    }
+  })
+
+  it('AC-002-5: 引数なしのチャネルサーバーはチャネル機能を宣言せず、操作できないセッションとして登録される', async () => {
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js')
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: ['src/channel/channel.mjs'],
+      cwd: root,
+      env: { ...env, CLAUDE_CODE_SESSION_ID: 'm2' },
+      stderr: 'inherit',
+    })
+    const client = new Client({ name: 'test-claude', version: '0' }, { capabilities: {} })
+    try {
+      await client.connect(transport)
+      assert.equal(client.getServerCapabilities().experimental, undefined)
+      assert.ok(await until(() => hub.store.get('m2')?.channelAlive), '登録されない')
+      assert.equal(hub.store.get('m2').controllable, false)
+      assert.throws(() => hub.instructions.submit('m2', 'x'), (e) => e.code === 'not-controllable')
+    } finally {
+      await client.close().catch(() => {})
+    }
+  })
+})

@@ -16,9 +16,13 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "esbuild": "^0.28.2",
+    "jsdom": "^26.1.0"
   }
 }

@@ -72,7 +72,7 @@ body {
 
 .rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
 .row {
-  display: grid; grid-template-columns: 6.5em 5.5em 12em 1fr 6em; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: 6.5em 5.5em 12em 1fr 6em auto; gap: 12px; align-items: center;
   padding: 8px 12px 8px 9px; border-left: 3px solid transparent;
 }
 .row + .row { border-top: 1px solid var(--border); }
@@ -90,7 +90,46 @@ body {
 .prompt-empty { color: var(--muted); }
 .session-id { color: var(--muted); font-size: 12px; }
 
+/* 指示の送信（機能 002） */
+.send-toggle {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px;
+  padding: 2px 10px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.send-toggle[aria-expanded="true"] { background: var(--accent); color: var(--bg); }
+.send-toggle-off { color: var(--muted); }
+.row-extra { grid-column: 1 / -1; display: grid; gap: 8px; padding: 4px 0 4px 6.5em; }
+.composer { display: grid; gap: 6px; }
+.composer-input {
+  width: 100%; resize: vertical; padding: 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); font: inherit;
+}
+.composer-actions { display: flex; align-items: center; gap: 12px; }
+.counter { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.counter-over { color: var(--permission); font-weight: 600; }
+.send {
+  margin-left: auto; border: 0; border-radius: 6px; padding: 6px 18px; font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--accent); color: var(--bg);
+}
+.send:disabled { opacity: .4; cursor: not-allowed; }
+.hint { margin: 0; color: var(--muted); font-size: 12px; }
+.instructions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.instruction { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+.instruction-status { font-weight: 700; white-space: nowrap; color: var(--working); }
+.instruction-held .instruction-status { color: var(--waiting); }
+.instruction-confirmed .instruction-status { color: #1a7f37; }
+.instruction-missed .instruction-status, .instruction-unconfirmed .instruction-status,
+.instruction-failed .instruction-status, .instruction-lost .instruction-status { color: var(--permission); }
+.instruction-cancelled .instruction-status { color: var(--muted); }
+.instruction-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.instruction-reason { color: var(--muted); font-size: 12px; }
+.instruction-action {
+  margin-left: auto; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  border-radius: 6px; padding: 0 8px; font: inherit; font-size: 12px; cursor: pointer;
+}
+
+
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr auto; }
   .prompt { grid-column: 1 / -1; }
+  .row-extra { padding-left: 0; }
 }

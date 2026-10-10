@@ -1,6 +1,8 @@
 // セッション一覧の状態管理（HTTP・WebSocket から独立した純粋なロジック）。
 // plan.md「状態遷移とフック」「生存確認と削除」に対応する。時刻は差し替え可能にしてテストする。
 
+import { promptText } from './prompt.mjs'
+
 // モデルからの質問（AskUserQuestion）は、ツールの許可ではなく回答を求めるものなので、許可待ちと分けて「質問待ち」にする（ADR 0010）
 const QUESTION_TOOL = 'AskUserQuestion'
 
@@ -33,6 +35,10 @@ const view = (r) => ({
   stateSince: r.stateSince,
   lastPrompt: r.lastPrompt,
   channelAlive: r.channelAlive,
+  // 操作モードのチャネルサーバーが接続している = 指示を送れる（ADR 0011）
+  controllable: r.controllable,
+  // 保留中の指示 [{ id, createdAt, preview }]（002-send-instruction）
+  pending: r.pending,
 })
 
 export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
@@ -51,6 +57,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
     const r = {
       sessionId, account: null, cwd: null, state, stateSince: now(),
       lastPrompt: null, transcriptPath: null, channelAlive: false, lastPollAt: null,
+      controllable: false, pending: [],
       // 状態を推測で置いただけ（再起動後の復元など）。実際の状態が分かったら外す
       unverified: false,
     }
@@ -97,14 +104,14 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
         r = create(id, decided ?? (IMPLIES_WORKING.has(event) ? 'working' : 'waiting'))
         r.unverified = !decided && !IMPLIES_WORKING.has(event) && event !== 'SessionStart'
         setFields(r, { account, cwd: input.cwd, transcriptPath: input.transcript_path })
-        if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = input.prompt
+        if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = promptText(input.prompt)
         emit({ type: 'added', session: view(r) })
         return
       }
 
       const before = JSON.stringify(view(r))
       setFields(r, { account, cwd: input.cwd, transcriptPath: input.transcript_path })
-      if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = input.prompt
+      if (event === 'UserPromptSubmit' && typeof input.prompt === 'string') r.lastPrompt = promptText(input.prompt)
       const decided = stateForEvent(event, input)
       if (decided || IMPLIES_WORKING.has(event) || event === 'SessionStart') r.unverified = false
       if (decided) setState(r, decided)
@@ -114,7 +121,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
     },
 
     // チャネルサーバーの /poll を受けた（登録・生存確認）
-    registerChannel({ sessionId, account = null, cwd = null }) {
+    registerChannel({ sessionId, account = null, cwd = null, channel = false }) {
       if (!sessionId) return
       ended.delete(sessionId)
       let r = sessions.get(sessionId)
@@ -123,6 +130,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
         r.unverified = true
         setFields(r, { account, cwd })
         r.channelAlive = true
+        r.controllable = channel === true
         r.lastPollAt = now()
         emit({ type: 'added', session: view(r) })
         return
@@ -130,6 +138,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
       const before = JSON.stringify(view(r))
       setFields(r, { account, cwd })
       r.channelAlive = true
+      r.controllable = channel === true
       r.lastPollAt = now()
       commit(r, before)
     },
@@ -186,6 +195,18 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
         .filter((r) => (isBlocked(r.state) || r.state === 'working') && r.transcriptPath)
         .map((r) => ({ sessionId: r.sessionId, transcriptPath: r.transcriptPath, state: r.state, stateSince: r.stateSince }))
     },
+
+    // 保留中の指示の一覧を更新する（instructions.mjs から）。変わったときだけ通知する
+    setPending(sessionId, pending) {
+      const r = sessions.get(sessionId)
+      if (!r) return
+      const before = JSON.stringify(view(r))
+      r.pending = pending
+      commit(r, before)
+    },
+
+    // 会話ログの場所（指示が届いたかの確認に使う）
+    transcriptOf: (sessionId) => sessions.get(sessionId)?.transcriptPath ?? null,
 
     list: () => [...sessions.values()].map(view),
     get: (sessionId) => (sessions.has(sessionId) ? view(sessions.get(sessionId)) : null),

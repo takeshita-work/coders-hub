@@ -96,3 +96,90 @@ export const titleFor = (counts) => {
   const n = counts.permission + counts.question + counts.waiting
   return n > 0 ? `(${n}) Coders Hub` : 'Coders Hub'
 }
+
+// ---- 指示の送信（機能 002） ----
+
+export const MAX_INSTRUCTION = 10_000
+
+// Hub から届く指示の状態（instruction メッセージの status）の表示名（AC-002-6）
+export const INSTRUCTION_LABEL = {
+  held: '保留中',
+  delivering: '送信中',
+  sent: '送信中',
+  confirmed: '届きました',
+  missed: '指示として扱われませんでした',
+  unconfirmed: '届いたか確認できません',
+  cancelled: '取り消しました',
+  lost: '失われました',
+  failed: '送れませんでした',
+}
+const IN_FLIGHT = new Set(['delivering', 'sent'])
+// これ以上は変わらない状態
+export const isFinal = (status) => !(status === 'held' || IN_FLIGHT.has(status))
+
+// 入力の検証。空・上限超過は送れない（AC-002-4）。戻り値: { ok, reason? }
+export const validateInstruction = (text) => {
+  if (typeof text !== 'string' || text.trim() === '') return { ok: false, reason: '指示を入力してください' }
+  if (text.length > MAX_INSTRUCTION) return { ok: false, reason: `指示は ${MAX_INSTRUCTION} 文字までです（${text.length} 文字）` }
+  return { ok: true }
+}
+
+// 操作できないセッションで表示する理由（AC-002-5）
+export const NOT_CONTROLLABLE_REASON = '操作モードで起動していません'
+
+// セッションの状態に応じた、送信前の案内（作業中などは、返答待ちになってから渡される）
+export const holdNotice = (session) =>
+  session.state === 'waiting' ? null : `${STATE_LABEL[session.state] ?? session.state}のため、返答待ちになってから送られます`
+
+// 送った指示の記録 Map（id -> { id, sessionId, status, reason?, preview? }）に、Hub のメッセージを適用する
+export const reduceInstruction = (records, message) => {
+  if (message.type !== 'instruction') return records
+  const prev = records.get(message.id)
+  const next = { ...prev, id: message.id, sessionId: message.sessionId, status: message.status }
+  if (message.reason) next.reason = message.reason
+  else delete next.reason
+  return new Map(records).set(message.id, next)
+}
+
+// 送信の応答（202）を記録に反映する。WebSocket のほうが先に届いていたら、状態は上書きしない
+export const addSubmitted = (records, { id, sessionId, status, preview }) => {
+  const prev = records.get(id)
+  if (prev) return new Map(records).set(id, { ...prev, preview })
+  return new Map(records).set(id, { id, sessionId, status, preview })
+}
+
+// 送れなかった指示（API のエラー）の記録。Hub を通っていないので、画面だけの ID を付ける
+export const addRejected = (records, { localId, sessionId, reason, preview }) =>
+  new Map(records).set(localId, { id: localId, sessionId, status: 'failed', reason, preview })
+
+export const dismissRecord = (records, id) => {
+  const next = new Map(records)
+  next.delete(id)
+  return next
+}
+
+// 再接続したときのスナップショットで、記録を整理する（AC-003-5）。
+//  - 保留中のはずの指示が、Hub のセッションの pending にない = Hub の再起動などで消えた → lost
+//  - 送信中のままの指示は、結果を受け取れなかった → unconfirmed
+export const reconcileInstructions = (records, sessions) => {
+  let changed = false
+  const next = new Map(records)
+  for (const rec of records.values()) {
+    const session = sessions.get(rec.sessionId)
+    if (rec.status === 'held') {
+      const stillPending = session && (session.pending ?? []).some((p) => p.id === rec.id)
+      if (!stillPending) {
+        next.set(rec.id, { ...rec, status: 'lost', reason: 'Hub の再起動、またはセッションの終了により、保留中の指示が失われました' })
+        changed = true
+      }
+    } else if (IN_FLIGHT.has(rec.status)) {
+      next.set(rec.id, { ...rec, status: 'unconfirmed' })
+      changed = true
+    }
+  }
+  return changed ? next : records
+}
+
+// 行に出す記録（新しい順ではなく、送った順）。最大 max 件
+export const recordsFor = (records, sessionId, max = 5) =>
+  [...records.values()].filter((r) => r.sessionId === sessionId).slice(-max)

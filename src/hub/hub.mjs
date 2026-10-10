@@ -9,6 +9,8 @@ import { loadConfig } from '../shared/config.mjs'
 import { createStore } from './sessions.mjs'
 import { createTranscriptMonitor } from './monitor.mjs'
 import { createStatusMonitor } from './status-monitor.mjs'
+import { createInstructions, InstructionError } from './instructions.mjs'
+import { createInstructionMonitor } from './instruction-monitor.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const MAX_BODY_BYTES = 1_000_000
@@ -98,17 +100,39 @@ export const createHub = ({
   statusIntervalMs = 500,
   // null にすると、claude の状態ファイルを見ない（テスト用）
   statusMonitor = createStatusMonitor({ store, intervalMs: statusIntervalMs }),
+  instructionIntervalMs = 500,
+  confirmMs = 15_000,
+  // null にすると、指示が届いたかを会話ログで確認しない（テスト用）。省略すると、標準の監視を使う
+  instructionMonitor: instructionMonitorOverride,
   log = () => {},
 } = {}) => {
+  // 指示の待ち行列。渡せる指示ができたら、待機中の /poll をすぐ応答させる
+  const instructions = createInstructions({ store, confirmMs, onReady: (sessionId) => wake(sessionId) })
+  const instructionMonitor =
+    instructionMonitorOverride === undefined
+      ? createInstructionMonitor({ instructions, intervalMs: instructionIntervalMs })
+      : instructionMonitorOverride
+
   // ---- 内部 API（hook / channel → Hub） ----
 
   // sessionId -> 保留中の /poll。1 セッションにつき 1 本だけ
   const polls = new Map()
 
-  const answerPoll = (entry) => {
+  // 渡すもの（指示 1 件）があれば 200 で応答する。なければ 204
+  const answerPoll = (entry, { item = null } = {}) => {
     entry.answered = true
     clearTimeout(entry.timer)
-    if (!entry.res.writableEnded) send(entry.res, 204)
+    if (entry.res.writableEnded) return
+    if (item) send(entry.res, 200, JSON.stringify({ instructions: [item] }), 'application/json')
+    else send(entry.res, 204)
+  }
+
+  // 渡すものができた: 待機中の /poll があれば、すぐ応答する
+  function wake(sessionId) {
+    const entry = polls.get(sessionId)
+    if (!entry || entry.answered) return
+    const item = instructions.take(sessionId)
+    if (item) answerPoll(entry, { item })
   }
 
   const handlePoll = async (req, res) => {
@@ -118,10 +142,19 @@ export const createHub = ({
     // 待っている間に切れていたら、登録しない（切断の通知が先に済んでいるため）
     if (res.destroyed) return
 
-    store.registerChannel({ sessionId, account: body.account ?? null, cwd: body.cwd ?? null })
+    store.registerChannel({ sessionId, account: body.account ?? null, cwd: body.cwd ?? null, channel: body.channel === true })
+    // 前の応答で渡した指示の、通知の結果
+    instructions.report(sessionId, body.results)
 
     const previous = polls.get(sessionId)
     if (previous) answerPoll(previous)
+
+    // 渡せる指示がすでにあれば、待たずに応答する
+    const item = instructions.take(sessionId)
+    if (item) {
+      send(res, 200, JSON.stringify({ instructions: [item] }), 'application/json')
+      return
+    }
 
     const entry = { res, answered: false, timer: null }
     entry.timer = setTimeout(() => answerPoll(entry), config.pollTimeoutMs)
@@ -192,7 +225,56 @@ export const createHub = ({
     })
   }
 
-  const ui = http.createServer(serveStatic)
+  // ---- 画面用の書き込み API（ADR 0012） ----
+
+  let uiPortActual = null
+
+  // 別のサイトのページから叩けないようにする: Host・Origin・独自ヘッダー・JSON の Content-Type を確かめる
+  const guardWrite = (req) => {
+    const host = String(req.headers.host ?? '').toLowerCase()
+    if (host !== `127.0.0.1:${uiPortActual}` && host !== `localhost:${uiPortActual}`) return false
+    const origin = req.headers.origin
+    if (origin) {
+      try {
+        if (new URL(origin).host.toLowerCase() !== host) return false
+      } catch {
+        return false
+      }
+    }
+    if (req.headers['x-coders-hub'] !== '1') return false
+    if (req.method === 'POST' && !String(req.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) return false
+    return true
+  }
+
+  const sendJson = (res, status, value) => send(res, status, JSON.stringify(value), 'application/json; charset=utf-8')
+
+  const STATUS_OF_ERROR = { 'not-found': 404, 'not-controllable': 409, invalid: 400, 'too-long': 413, 'not-held': 409 }
+
+  const handleApi = async (req, res) => {
+    try {
+      if (req.method !== 'GET' && req.method !== 'HEAD' && !guardWrite(req)) return sendJson(res, 403, { error: 'forbidden' })
+      const [pathname] = req.url.split('?')
+      let match = /^\/api\/sessions\/([^/]+)\/instructions$/.exec(pathname)
+      if (match && req.method === 'POST') {
+        const body = await readJson(req)
+        const result = instructions.submit(decodeURIComponent(match[1]), body.text)
+        return sendJson(res, 202, result)
+      }
+      match = /^\/api\/sessions\/([^/]+)\/instructions\/([^/]+)$/.exec(pathname)
+      if (match && req.method === 'DELETE') {
+        instructions.cancel(decodeURIComponent(match[1]), decodeURIComponent(match[2]))
+        return send(res, 204)
+      }
+      sendJson(res, 404, { error: 'not found' })
+    } catch (e) {
+      if (res.headersSent) return res.destroy()
+      if (e instanceof InstructionError) return sendJson(res, STATUS_OF_ERROR[e.code] ?? 400, { error: e.code, message: e.message })
+      if (e instanceof HttpError) return sendJson(res, e.status, { error: e.message })
+      sendJson(res, 500, { error: 'internal error' })
+    }
+  }
+
+  const ui = http.createServer((req, res) => (req.url.startsWith('/api/') ? handleApi(req, res) : serveStatic(req, res)))
   const wss = new WebSocketServer({ noServer: true })
 
   // 別のサイトのページから WebSocket をつながれないように、Origin が自分のホストのときだけ受け付ける
@@ -222,6 +304,7 @@ export const createHub = ({
     for (const client of wss.clients) if (client.readyState === 1) client.send(text)
   }
   const unsubscribe = store.subscribe((change) => broadcast(change))
+  const unsubscribeInstructions = instructions.subscribe((change) => broadcast(change))
 
   // ---- 起動と停止 ----
 
@@ -229,6 +312,7 @@ export const createHub = ({
 
   return {
     store,
+    instructions,
     async start() {
       const internalPort = await listen(internal, config.internalPort, config.host)
       let uiPort
@@ -242,15 +326,20 @@ export const createHub = ({
         for (const id of store.sweep()) log('expired', { sessionId: id })
       }, sweepIntervalMs)
       sweepTimer.unref()
+      uiPortActual = uiPort
       monitor.start()
       statusMonitor?.start()
+      instructionMonitor?.start()
       return { internalPort, uiPort }
     },
     async stop() {
       clearInterval(sweepTimer)
       monitor.stop()
       statusMonitor?.stop()
+      instructionMonitor?.stop()
       unsubscribe()
+      unsubscribeInstructions()
+      instructions.dispose?.()
       for (const client of wss.clients) client.terminate()
       internal.closeAllConnections()
       ui.closeAllConnections()

@@ -1,6 +1,6 @@
 # 002 指示の送信 実装計画
 
-- ステータス: Draft
+- ステータス: Implemented
 - 対応 spec: ./spec.md
 - 関連 ADR: 0001, 0011, 0012, 0013
 - 参考: `../001-session-list/plan.md`、`../../../docs/research/claude-code-mechanisms.md`
