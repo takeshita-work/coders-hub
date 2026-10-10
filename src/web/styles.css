@@ -127,6 +127,51 @@ body {
   border-radius: 6px; padding: 0 8px; font: inherit; font-size: 12px; cursor: pointer;
 }
 
+/* 許可要求・質問への応答（機能 003） */
+.requests { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.request {
+  display: grid; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+}
+.request-permission { border-left: 4px solid var(--permission); }
+.request-question { border-left: 4px solid var(--question); }
+.request-head { display: flex; align-items: baseline; gap: 10px; }
+.request-tool { font-weight: 700; }
+.request-description { color: var(--muted); font-size: 12px; }
+.request-input {
+  margin: 0; padding: 8px; max-height: 20em; overflow: auto; white-space: pre-wrap; word-break: break-all;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+}
+.request-input[data-collapsed="true"] { max-height: 8em; }
+.request-toggle {
+  justify-self: start; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  border-radius: 6px; padding: 0 8px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.request-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.request-actions .send { margin-left: 0; }
+.request-actions .allow, .request-actions .deny {
+  border: 0; border-radius: 6px; padding: 6px 18px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.request-actions .allow { background: #1a7f37; color: #fff; }
+.request-actions .deny { background: var(--permission); color: #fff; }
+.request-actions button:disabled { opacity: .4; cursor: not-allowed; }
+.request-error { color: var(--permission); }
+.question { margin: 0; padding: 0; border: 0; display: grid; gap: 4px; min-width: 0; }
+.question legend { padding: 0; margin-bottom: 4px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.question-header { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--question-bg); color: var(--question); font-weight: 700; }
+.question-text { font-weight: 600; }
+.option { display: flex; align-items: baseline; gap: 8px; font-size: 13px; cursor: pointer; }
+.option-label { font-weight: 600; }
+.option-description { color: var(--muted); font-size: 12px; }
+.other-input {
+  flex: 1; min-width: 8em; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); font: inherit;
+}
+.request-result { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+.request-status { font-weight: 700; white-space: nowrap; color: var(--working); }
+.request-result-allowed .request-status, .request-result-answered .request-status { color: #1a7f37; }
+.request-result-denied .request-status, .request-result-failed .request-status, .request-result-timeout .request-status { color: var(--permission); }
+.request-result-terminal .request-status { color: var(--muted); }
+.request-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr auto; }

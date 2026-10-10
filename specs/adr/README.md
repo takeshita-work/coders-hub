@@ -27,3 +27,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0011 | チャネルサーバーは 1 つの実装で、起動引数により操作モードを切り替える | Accepted |
 | 0012 | 画面用の書き込み API を、他サイトのページから叩けないように守る | Accepted |
 | 0013 | 指示は Hub 本体で保留し、返答待ちになったときに 1 件ずつ渡す | Accepted |
+| 0014 | モデルからの質問（AskUserQuestion）への回答は、PermissionRequest フックで返す | Accepted |

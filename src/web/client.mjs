@@ -1,6 +1,9 @@
 // Hub との WebSocket クライアント。スナップショットの受信、差分の適用、切断時の自動再接続。
 // WebSocket の実装とタイマーは差し替えられる（テスト用）。
-import { addRejected, addSubmitted, dismissRecord, reconcileInstructions, reduceInstruction, reduceMessage, validateInstruction } from './logic.mjs'
+import {
+  addRejected, addSubmitted, collectSummaries, dismissRecord, reconcileInstructions, reduceInstruction, reduceMessage,
+  reduceRequest, validateInstruction,
+} from './logic.mjs'
 
 export const initialState = () => ({
   sessions: new Map(),
@@ -8,6 +11,8 @@ export const initialState = () => ({
   ready: false, // 最初のスナップショットを受け取ったか（受け取るまで「空」と表示しない）
   offset: 0, // Hub の時刻 - この PC の時刻（ミリ秒）。経過時間の計算に使う
   instructions: new Map(), // この画面から送った指示の記録（id -> { id, sessionId, status, reason?, preview? }）
+  requestRecords: new Map(), // 閉じた許可要求・質問の結果（id -> { id, sessionId, status, reason?, summary? }）
+  requestSummaries: new Map(), // 応答待ちだった要求の短い説明（結果の表示に使う。id -> 説明）
 })
 
 export const createClient = ({
@@ -41,6 +46,9 @@ export const createClient = ({
       try { message = JSON.parse(event.data) } catch { return }
       const patch = { sessions: reduceMessage(state.sessions, message) }
       if (message.type === 'instruction') patch.instructions = reduceInstruction(state.instructions, message)
+      // 閉じる前の要求の説明を覚えておく（閉じたあとの session には、要求が残らない）
+      if (message.type === 'request') patch.requestRecords = reduceRequest(state.requestRecords, message, state.requestSummaries)
+      else patch.requestSummaries = collectSummaries(state.requestSummaries, patch.sessions)
       if (message.type === 'snapshot') {
         patch.ready = true
         if (typeof message.now === 'number') patch.offset = message.now - now()
@@ -106,6 +114,23 @@ export const createClient = ({
     // 結果の表示を消す
     dismissInstruction(id) {
       update({ instructions: dismissRecord(state.instructions, id) })
+    },
+
+    // 許可要求・質問に応答する（機能 003）。許可: { behavior: 'allow' | 'deny' } / 質問: { answers }。戻り値: { ok, reason? }
+    async respondRequest(sessionId, requestId, body) {
+      try {
+        const res = await call('POST', `/api/sessions/${encodeURIComponent(sessionId)}/requests/${encodeURIComponent(requestId)}/response`, body)
+        if (res.ok) return { ok: true }
+        const detail = await res.json().catch(() => ({}))
+        return { ok: false, reason: detail.message ?? detail.error ?? `応答に失敗しました（${res.status}）` }
+      } catch {
+        return { ok: false, reason: 'Hub に接続できません' }
+      }
+    },
+
+    // 要求の結果の表示を消す
+    dismissRequest(id) {
+      update({ requestRecords: dismissRecord(state.requestRecords, id) })
     },
 
     start() {

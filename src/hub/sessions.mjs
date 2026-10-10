@@ -39,6 +39,8 @@ const view = (r) => ({
   controllable: r.controllable,
   // 保留中の指示 [{ id, createdAt, preview }]（002-send-instruction）
   pending: r.pending,
+  // 応答待ちの許可要求・質問 [{ id, kind, ... }]（003-permission-relay）
+  requests: r.requests,
 })
 
 export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
@@ -47,9 +49,24 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
   const ended = new Set()
   const listeners = new Set()
 
+  // 通知は、起きた順にすべての購読者へ配る。購読者の処理中に新しい変更が起きても（例: 要求の待ち行列が
+  // 状態の変化を受けて要求を閉じる）、入れ子では配らず、いまの配信が終わってから配る。
+  // 入れ子で配ると、あとの（新しい）通知が先に届き、古い通知で画面が上書きされる
+  const queue = []
+  let delivering = false
   const emit = (change) => {
-    for (const l of listeners) {
-      try { l(change) } catch { /* 購読者の失敗で本体を止めない */ }
+    queue.push(change)
+    if (delivering) return
+    delivering = true
+    try {
+      while (queue.length > 0) {
+        const next = queue.shift()
+        for (const l of listeners) {
+          try { l(next) } catch { /* 購読者の失敗で本体を止めない */ }
+        }
+      }
+    } finally {
+      delivering = false
     }
   }
 
@@ -57,7 +74,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
     const r = {
       sessionId, account: null, cwd: null, state, stateSince: now(),
       lastPrompt: null, transcriptPath: null, channelAlive: false, lastPollAt: null,
-      controllable: false, pending: [],
+      controllable: false, pending: [], requests: [],
       // 状態を推測で置いただけ（再起動後の復元など）。実際の状態が分かったら外す
       unverified: false,
     }
@@ -202,6 +219,15 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
       if (!r) return
       const before = JSON.stringify(view(r))
       r.pending = pending
+      commit(r, before)
+    },
+
+    // 応答待ちの要求の一覧を更新する（requests.mjs から）。変わったときだけ通知する
+    setRequests(sessionId, requests) {
+      const r = sessions.get(sessionId)
+      if (!r) return
+      const before = JSON.stringify(view(r))
+      r.requests = requests
       commit(r, before)
     },
 

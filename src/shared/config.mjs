@@ -18,4 +18,6 @@ export const loadConfig = (env = process.env) => ({
   // 長いポーリングの周期と、最後の /poll からの削除期限（NFR-006）
   pollTimeoutMs: intFromEnv(env, 'CODERS_HUB_POLL_TIMEOUT_MS', 30_000),
   expireMs: intFromEnv(env, 'CODERS_HUB_EXPIRE_MS', 50_000),
+  // 質問（AskUserQuestion）の答えを待つ上限。質問用フックの timeout（設定、100 秒）より短くする（機能 003）
+  askWaitMs: intFromEnv(env, 'CODERS_HUB_ASK_WAIT_MS', 85_000),
 })

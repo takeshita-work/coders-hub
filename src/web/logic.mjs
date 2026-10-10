@@ -183,3 +183,124 @@ export const reconcileInstructions = (records, sessions) => {
 // 行に出す記録（新しい順ではなく、送った順）。最大 max 件
 export const recordsFor = (records, sessionId, max = 5) =>
   [...records.values()].filter((r) => r.sessionId === sessionId).slice(-max)
+
+// ---- 許可・質問への応答（機能 003） ----
+
+// Hub から届く要求の結果（request メッセージの status）の表示名（AC-004-*, 005-*）
+export const REQUEST_LABEL = {
+  open: '応答待ち',
+  allowed: '許可しました',
+  denied: '拒否しました',
+  answered: '回答しました',
+  terminal: 'ターミナルで応答済み',
+  timeout: '時間切れ',
+  failed: '応答できませんでした',
+}
+
+// 1 つの答えの上限（Hub と同じ）
+export const MAX_ANSWER = 2_000
+// 入力がこの文字数を超えたら、折りたたんで表示する（AC-004-1）
+export const PREVIEW_COLLAPSE_CHARS = 400
+
+// claude は長い入力を省略して渡す（約 3,600 文字を超えると、中間が「⋯ N code points elided ⋯」になる）。
+// 戻り値: { head, omitted, tail }。省略されていなければ omitted は 0、tail は空
+const ELIDED = /\n⋯ (\d+) code points elided ⋯\n/
+export const parsePreview = (preview) => {
+  const text = typeof preview === 'string' ? preview : ''
+  const m = ELIDED.exec(text)
+  if (!m) return { head: text, omitted: 0, tail: '' }
+  return { head: text.slice(0, m.index), omitted: Number(m[1]), tail: text.slice(m.index + m[0].length) }
+}
+
+// 折りたたみ前に見せる入力の長さ（省略の目印を含めた全体で数える）
+export const previewLength = (preview) => (typeof preview === 'string' ? Array.from(preview).length : 0)
+
+// 折りたたんだときに見せる先頭部分
+export const collapsePreview = (preview, max = PREVIEW_COLLAPSE_CHARS) => {
+  const chars = Array.from(typeof preview === 'string' ? preview : '')
+  return chars.length > max ? chars.slice(0, max).join('') + '…' : chars.join('')
+}
+
+const clip = (text, max) => {
+  const chars = Array.from(String(text).replace(/\s+/g, ' ').trim())
+  return chars.length > max ? chars.slice(0, max).join('') + '…' : chars.join('')
+}
+
+// 結果の表示に添える、要求の短い説明（本文は残さない）
+export const summarizeRequest = (request) =>
+  request.kind === 'permission'
+    ? clip(`${request.toolName}${request.description ? `: ${request.description}` : ''}`, 60)
+    : clip(`質問: ${request.questions?.[0]?.header || request.questions?.[0]?.question || ''}`, 60)
+
+// セッションの一覧から、応答待ちの要求の説明を集める（閉じたあとの結果の表示に使う）。増やすだけで、減らさない
+export const collectSummaries = (summaries, sessions) => {
+  let next = summaries
+  for (const s of sessions.values()) {
+    for (const r of s.requests ?? []) {
+      if (next.has(r.id)) continue
+      if (next === summaries) next = new Map(summaries)
+      next.set(r.id, summarizeRequest(r))
+    }
+  }
+  return next
+}
+
+// 要求の結果の記録 Map（id -> { id, sessionId, status, reason?, summary? }）に、Hub のメッセージを適用する。
+// 応答待ち（open）は、セッションの requests から表示するので、記録しない
+export const reduceRequest = (records, message, summaries = new Map()) => {
+  if (message.type !== 'request' || message.status === 'open') return records
+  const next = { id: message.id, sessionId: message.sessionId, status: message.status }
+  if (message.reason) next.reason = message.reason
+  const summary = summaries.get(message.id)
+  if (summary) next.summary = summary
+  return new Map(records).set(message.id, next)
+}
+
+export const requestRecordsFor = (records, sessionId, max = 5) =>
+  [...records.values()].filter((r) => r.sessionId === sessionId).slice(-max)
+
+// ---- 質問の答えの組み立て ----
+// draft: 質問ごとの { selected: 選んだ選択肢のラベル[], other: 自由入力 }
+
+export const emptyDraft = (questions) => questions.map(() => ({ selected: [], other: '' }))
+
+const replaceAt = (draft, index, value) => draft.map((d, i) => (i === index ? value : d))
+
+// 選択肢を選ぶ・外す。単一選択は 1 つだけ選べて、自由入力は消える
+export const toggleOption = (draft, index, question, label) => {
+  const d = draft[index]
+  if (!question.multiSelect) return replaceAt(draft, index, { selected: [label], other: '' })
+  const selected = d.selected.includes(label) ? d.selected.filter((l) => l !== label) : [...d.selected, label]
+  return replaceAt(draft, index, { ...d, selected })
+}
+
+// 自由入力。単一選択は、入力があれば選択肢の選択を外す
+export const setOther = (draft, index, question, text) => {
+  const d = draft[index]
+  const selected = !question.multiSelect && text.trim() !== '' ? [] : d.selected
+  return replaceAt(draft, index, { selected, other: text })
+}
+
+// 1 つの質問の答え。単一選択は文字列、複数選択は文字列の配列（Hub がカンマ区切りにする）
+export const answerFor = (question, d) => {
+  const other = d.other.trim()
+  if (!question.multiSelect) return other || d.selected[0] || ''
+  return [...d.selected, ...(other ? [other] : [])]
+}
+
+const isBlank = (answer) => (Array.isArray(answer) ? answer.length === 0 : answer === '')
+
+// すべての質問に答えがあり、長すぎないか。戻り値: { ok, reason? }
+export const validateAnswers = (questions, draft) => {
+  for (let i = 0; i < questions.length; i++) {
+    const answer = answerFor(questions[i], draft[i])
+    if (isBlank(answer)) return { ok: false, reason: 'すべての質問に答えてください' }
+    const length = (Array.isArray(answer) ? answer.join(',') : answer).length
+    if (length > MAX_ANSWER) return { ok: false, reason: `答えは ${MAX_ANSWER} 文字までです（${length} 文字）` }
+  }
+  return { ok: true }
+}
+
+// Hub へ送る answers（質問文 → 答え）
+export const buildAnswers = (questions, draft) =>
+  Object.fromEntries(questions.map((q, i) => [q.question, answerFor(q, draft[i])]))

@@ -8,10 +8,12 @@ import { buildMcpConfig, CHANNEL_FLAG } from '../src/setup/mcp-config.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const hookPath = path.join(root, 'src/hook/hook.mjs')
+const askHookPath = path.join(root, 'src/hook/ask-hook.mjs')
 const channelPath = path.join(root, 'src/channel/channel.mjs')
 
 console.log('# 1. settings.json に追加するフック設定（アカウントごと）')
-console.log(JSON.stringify(buildHooksConfig(hookPath), null, 2))
+console.log(JSON.stringify(buildHooksConfig(hookPath, askHookPath), null, 2))
+console.log('#    PermissionRequest の 2 つ目（matcher: AskUserQuestion）は、ダッシュボードから質問に答えるための同期フック（操作モードのセッションだけで働く）')
 console.log()
 console.log('# 2. 一覧だけのモード: --mcp-config に渡す設定（例: coders-hub.json として保存）')
 console.log(JSON.stringify(buildMcpConfig(channelPath), null, 2))

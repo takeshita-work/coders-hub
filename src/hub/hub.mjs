@@ -11,6 +11,7 @@ import { createTranscriptMonitor } from './monitor.mjs'
 import { createStatusMonitor } from './status-monitor.mjs'
 import { createInstructions, InstructionError } from './instructions.mjs'
 import { createInstructionMonitor } from './instruction-monitor.mjs'
+import { createRequests, RequestError } from './requests.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const MAX_BODY_BYTES = 1_000_000
@@ -102,12 +103,18 @@ export const createHub = ({
   statusMonitor = createStatusMonitor({ store, intervalMs: statusIntervalMs }),
   instructionIntervalMs = 500,
   confirmMs = 15_000,
+  // 質問のフックを待たせる上限。フックの timeout（設定）より短くする（機能 003、ADR 0014）
+  askWaitMs = config.askWaitMs ?? 85_000,
+  // ツールの終了で、届いたばかりの要求を閉じない猶予（requests.mjs）。省略すると標準の値
+  requestGraceMs,
   // null にすると、指示が届いたかを会話ログで確認しない（テスト用）。省略すると、標準の監視を使う
   instructionMonitor: instructionMonitorOverride,
   log = () => {},
 } = {}) => {
   // 指示の待ち行列。渡せる指示ができたら、待機中の /poll をすぐ応答させる
   const instructions = createInstructions({ store, confirmMs, onReady: (sessionId) => wake(sessionId) })
+  // 許可要求・質問の待ち行列（機能 003）。許可の応答ができたら、待機中の /poll をすぐ応答させる
+  const requests = createRequests({ store, graceMs: requestGraceMs, onVerdict: (sessionId) => wake(sessionId) })
   const instructionMonitor =
     instructionMonitorOverride === undefined
       ? createInstructionMonitor({ instructions, intervalMs: instructionIntervalMs })
@@ -118,13 +125,17 @@ export const createHub = ({
   // sessionId -> 保留中の /poll。1 セッションにつき 1 本だけ
   const polls = new Map()
 
-  // 渡すもの（指示 1 件）があれば 200 で応答する。なければ 204
-  const answerPoll = (entry, { item = null } = {}) => {
+  // 渡すもの（指示 1 件、許可の応答）があれば 200 で応答する。なければ 204
+  const answerPoll = (entry, { item = null, verdicts = [] } = {}) => {
     entry.answered = true
     clearTimeout(entry.timer)
     if (entry.res.writableEnded) return
-    if (item) send(entry.res, 200, JSON.stringify({ instructions: [item] }), 'application/json')
-    else send(entry.res, 204)
+    if (item || verdicts.length > 0) {
+      const body = {}
+      if (item) body.instructions = [item]
+      if (verdicts.length > 0) body.verdicts = verdicts
+      send(entry.res, 200, JSON.stringify(body), 'application/json')
+    } else send(entry.res, 204)
   }
 
   // 渡すものができた: 待機中の /poll があれば、すぐ応答する
@@ -132,7 +143,8 @@ export const createHub = ({
     const entry = polls.get(sessionId)
     if (!entry || entry.answered) return
     const item = instructions.take(sessionId)
-    if (item) answerPoll(entry, { item })
+    const verdicts = requests.takeVerdicts(sessionId)
+    if (item || verdicts.length > 0) answerPoll(entry, { item, verdicts })
   }
 
   const handlePoll = async (req, res) => {
@@ -149,10 +161,14 @@ export const createHub = ({
     const previous = polls.get(sessionId)
     if (previous) answerPoll(previous)
 
-    // 渡せる指示がすでにあれば、待たずに応答する
+    // 渡せる指示・許可の応答がすでにあれば、待たずに応答する
     const item = instructions.take(sessionId)
-    if (item) {
-      send(res, 200, JSON.stringify({ instructions: [item] }), 'application/json')
+    const verdicts = requests.takeVerdicts(sessionId)
+    if (item || verdicts.length > 0) {
+      const out = {}
+      if (item) out.instructions = [item]
+      if (verdicts.length > 0) out.verdicts = verdicts
+      send(res, 200, JSON.stringify(out), 'application/json')
       return
     }
 
@@ -170,6 +186,54 @@ export const createHub = ({
     })
   }
 
+  const STATUS_OF_REQUEST_ERROR = { 'not-found': 404, 'not-controllable': 409, invalid: 400, 'not-open': 409 }
+  const requestHttpError = (e) => new HttpError(STATUS_OF_REQUEST_ERROR[e.code] ?? 400, e.message)
+
+  // 許可要求（チャネルサーバー → Hub）。操作モードでないセッションは 409（チャネルサーバーは無視してよい）
+  const handlePermission = async (req, res) => {
+    const body = await readJson(req)
+    const sessionId = body.session
+    if (typeof sessionId !== 'string' || !sessionId) throw new HttpError(400, 'session is required')
+    try {
+      requests.addPermission(sessionId, {
+        requestId: body.request_id, toolName: body.tool_name, description: body.description, inputPreview: body.input_preview,
+      })
+    } catch (e) {
+      throw e instanceof RequestError ? requestHttpError(e) : e
+    }
+    send(res, 204)
+  }
+
+  // 質問（AskUserQuestion 用のフック → Hub）。答えが入るか、閉じるか、待ち時間が切れるまで応答を保留する。
+  // 答えがあれば 200 { answers }。それ以外（操作できない・時間切れ・ターミナルで応答）は 204 で、フックは何も出力しない
+  const handleAsk = async (req, res) => {
+    const body = await readJson(req)
+    const sessionId = body.session
+    if (typeof sessionId !== 'string' || !sessionId) throw new HttpError(400, 'session is required')
+    const session = store.get(sessionId)
+    if (!session || !session.controllable) return send(res, 204)
+    let added
+    try {
+      added = requests.addQuestion(sessionId, { questions: body.questions })
+    } catch (e) {
+      throw e instanceof RequestError ? requestHttpError(e) : e
+    }
+    let finished = false
+    const timer = setTimeout(() => requests.close(sessionId, added.id, 'timeout'), askWaitMs)
+    // 応答する前に接続が切れた = フックが強制終了された（ターミナルで拒否など）
+    res.on('close', () => {
+      if (finished) return
+      clearTimeout(timer)
+      requests.close(sessionId, added.id, 'terminal')
+    })
+    const answers = await added.result
+    finished = true
+    clearTimeout(timer)
+    if (res.destroyed || res.writableEnded) return
+    if (answers) send(res, 200, JSON.stringify({ answers }), 'application/json')
+    else send(res, 204)
+  }
+
   const internal = http.createServer(async (req, res) => {
     try {
       const route = `${req.method} ${req.url.split('?')[0]}`
@@ -180,9 +244,13 @@ export const createHub = ({
           throw new HttpError(400, 'event and input are required')
         }
         store.applyHookEvent({ event: body.event, input: body.input, account: body.account ?? null })
+        // ツールが終わった = ターミナルで先に許可・回答された要求を閉じる（機能 003）
+        if (body.event === 'PostToolUse' && typeof body.input.session_id === 'string') requests.toolDone(body.input.session_id, body.input.tool_name)
         return send(res, 204)
       }
       if (route === 'POST /poll') return await handlePoll(req, res)
+      if (route === 'POST /permission') return await handlePermission(req, res)
+      if (route === 'POST /ask') return await handleAsk(req, res)
       if (route === 'POST /bye') {
         // チャネルサーバーが終了を知らせた（stdin が閉じたとき）
         const body = await readJson(req)
@@ -265,9 +333,16 @@ export const createHub = ({
         instructions.cancel(decodeURIComponent(match[1]), decodeURIComponent(match[2]))
         return send(res, 204)
       }
+      match = /^\/api\/sessions\/([^/]+)\/requests\/([^/]+)\/response$/.exec(pathname)
+      if (match && req.method === 'POST') {
+        const body = await readJson(req)
+        requests.respond(decodeURIComponent(match[1]), decodeURIComponent(match[2]), body)
+        return send(res, 204)
+      }
       sendJson(res, 404, { error: 'not found' })
     } catch (e) {
       if (res.headersSent) return res.destroy()
+      if (e instanceof RequestError) return sendJson(res, STATUS_OF_REQUEST_ERROR[e.code] ?? 400, { error: e.code, message: e.message })
       if (e instanceof InstructionError) return sendJson(res, STATUS_OF_ERROR[e.code] ?? 400, { error: e.code, message: e.message })
       if (e instanceof HttpError) return sendJson(res, e.status, { error: e.message })
       sendJson(res, 500, { error: 'internal error' })
@@ -305,6 +380,7 @@ export const createHub = ({
   }
   const unsubscribe = store.subscribe((change) => broadcast(change))
   const unsubscribeInstructions = instructions.subscribe((change) => broadcast(change))
+  const unsubscribeRequests = requests.subscribe((change) => broadcast(change))
 
   // ---- 起動と停止 ----
 
@@ -313,6 +389,7 @@ export const createHub = ({
   return {
     store,
     instructions,
+    requests,
     async start() {
       const internalPort = await listen(internal, config.internalPort, config.host)
       let uiPort
@@ -324,6 +401,7 @@ export const createHub = ({
       }
       sweepTimer = setInterval(() => {
         for (const id of store.sweep()) log('expired', { sessionId: id })
+        requests.tick()
       }, sweepIntervalMs)
       sweepTimer.unref()
       uiPortActual = uiPort
@@ -339,7 +417,9 @@ export const createHub = ({
       instructionMonitor?.stop()
       unsubscribe()
       unsubscribeInstructions()
+      unsubscribeRequests()
       instructions.dispose?.()
+      requests.dispose?.()
       for (const client of wss.clients) client.terminate()
       internal.closeAllConnections()
       ui.closeAllConnections()

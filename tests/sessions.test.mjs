@@ -231,6 +231,18 @@ describe('変化の通知', () => {
     store.applyHookEvent(hook('Stop', {}, 's2'))
     assert.equal(changes.length, 2)
   })
+
+  it('購読者の処理中に起きた変更は、いまの通知がすべての購読者へ配られてから配る（新しい通知を先に配らない）', () => {
+    store.applyHookEvent(hook('UserPromptSubmit'))
+    store.applyHookEvent(hook('PermissionRequest', { tool_name: 'Bash' }))
+    store.setRequests('s1', [{ id: 'abcde', kind: 'permission' }])
+    // 購読者 A は、返答待ちへの変化を受けて要求を閉じる（要求の待ち行列と同じ）。購読者 B は A のあとに登録される
+    store.subscribe((c) => { if (c.type === 'updated' && c.session.state === 'waiting') store.setRequests('s1', []) })
+    const seen = []
+    store.subscribe((c) => { if (c.type === 'updated') seen.push(c.session.requests.length) })
+    store.applyHookEvent(hook('Stop'))
+    assert.deepEqual(seen, [1, 0], '最後に届くのが最新（要求なし）')
+  })
 })
 
 describe('中断・拒否の反映（ADR 0007）', () => {
@@ -273,5 +285,16 @@ describe('中断・拒否の反映（ADR 0007）', () => {
     store.applyHookEvent(hook('PermissionRequest'))
     store.applyInterruption('s1', 1_900)
     assert.deepEqual(store.monitorTargets(), [])
+  })
+})
+
+describe('直近の発言（チャネルから届いた指示）', () => {
+  it('ダッシュボードから送った指示は、<channel> タグを外して本文を直近の発言にする', () => {
+    const store = createStore()
+    const prompt = '<channel source="coders-hub" id="ykwc2x">\n終わったら「完了」と答えて\n2 行目\n</channel>'
+    store.applyHookEvent({ event: 'UserPromptSubmit', input: { session_id: 's1', prompt } })
+    assert.equal(store.get('s1').lastPrompt, '終わったら「完了」と答えて\n2 行目')
+    store.applyHookEvent({ event: 'UserPromptSubmit', input: { session_id: 's1', prompt: '普通の入力 <channel> を含む' } })
+    assert.equal(store.get('s1').lastPrompt, '普通の入力 <channel> を含む')
   })
 })

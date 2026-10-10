@@ -58,7 +58,11 @@ const Dashboard = () => {
   const onCancel = useCallback((sessionId, id) => clientRef.current.cancelInstruction(sessionId, id), [])
   const onDismiss = useCallback((id) => clientRef.current.dismissInstruction(id), [])
 
-  return h(App, { state, now: tick + state.offset, filter, collapsed, onFilter, onToggle, onSend, onCancel, onDismiss })
+  // 許可要求・質問への応答、結果を閉じる（機能 003）
+  const onRespond = useCallback((sessionId, requestId, body) => clientRef.current.respondRequest(sessionId, requestId, body), [])
+  const onDismissRequest = useCallback((id) => clientRef.current.dismissRequest(id), [])
+
+  return h(App, { state, now: tick + state.offset, filter, collapsed, onFilter, onToggle, onSend, onCancel, onDismiss, onRespond, onDismissRequest })
 }
 
 createRoot(document.getElementById('root')).render(h(Dashboard))

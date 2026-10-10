@@ -1,8 +1,9 @@
 // 画面の部品（表示のみ。状態は props で受け取る）。JSX は使わず createElement で書く（ビルドなしでテストできる）。
 import { createElement as h, useState } from 'react'
 import {
-  INSTRUCTION_LABEL, MAX_INSTRUCTION, NOT_CONTROLLABLE_REASON, STATE_LABEL, countStates, formatElapsed, formatPrompt, groupByAccount,
-  holdNotice, isFinal, projectName, recordsFor, shortId, validateInstruction,
+  INSTRUCTION_LABEL, MAX_INSTRUCTION, NOT_CONTROLLABLE_REASON, PREVIEW_COLLAPSE_CHARS, REQUEST_LABEL, STATE_LABEL, buildAnswers,
+  collapsePreview, countStates, emptyDraft, formatElapsed, formatPrompt, groupByAccount, holdNotice, isFinal, parsePreview,
+  previewLength, projectName, recordsFor, requestRecordsFor, setOther, shortId, toggleOption, validateAnswers, validateInstruction,
 } from './logic.mjs'
 
 const FILTERS = [
@@ -86,10 +87,122 @@ export const Instructions = ({ pending, records, onCancel, onDismiss, sessionId 
       )),
   )
 
-export const Row = ({ session, elapsedMs, records = [], onSend, onCancel, onDismiss }) => {
+// 許可要求の入力の表示（AC-004-1）。長いときは折りたたむ。claude が省略して渡したときは、省略があることと文字数を示す
+export const RequestInput = ({ preview }) => {
+  const [expanded, setExpanded] = useState(false)
+  const { omitted } = parsePreview(preview)
+  const long = previewLength(preview) > PREVIEW_COLLAPSE_CHARS
+  const shown = expanded || !long ? preview : collapsePreview(preview)
+  return h('div', { className: 'request-input-wrap' },
+    h('pre', { className: 'request-input', 'data-collapsed': long && !expanded }, shown),
+    omitted > 0 && h('p', { className: 'hint', 'data-hint': 'elided' },
+      `入力が長いため、途中が省略されています（省略: ${omitted} 文字）。全文は確認できません。内容に確信が持てないときは、拒否してください`),
+    long && h('button', { type: 'button', className: 'request-toggle', 'aria-expanded': expanded, onClick: () => setExpanded(!expanded) },
+      expanded ? '折りたたむ' : 'すべて表示'),
+  )
+}
+
+// 許可要求（AC-004-1〜004-4）
+export const PermissionCard = ({ sessionId, request, onRespond }) => {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const answer = async (behavior) => {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await onRespond?.(sessionId, request.id, { behavior })
+      if (result && !result.ok) setError(result.reason)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return h('li', { className: 'request request-permission', 'data-request-kind': 'permission', 'data-request-id': request.id },
+    h('div', { className: 'request-head' },
+      h('span', { className: 'request-tool' }, request.toolName),
+      request.description && h('span', { className: 'request-description' }, request.description),
+    ),
+    h(RequestInput, { preview: request.inputPreview }),
+    h('div', { className: 'request-actions' },
+      h('button', { type: 'button', className: 'allow', disabled: busy, onClick: () => answer('allow') }, '許可'),
+      h('button', { type: 'button', className: 'deny', disabled: busy, onClick: () => answer('deny') }, '拒否'),
+      error && h('span', { className: 'hint request-error', role: 'alert' }, error),
+    ),
+  )
+}
+
+// 質問への回答（AC-004-7〜004-10）。選択肢（単一・複数）と自由入力
+export const QuestionCard = ({ sessionId, request, onRespond }) => {
+  const { questions } = request
+  const [draft, setDraft] = useState(() => emptyDraft(questions))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const checked = validateAnswers(questions, draft)
+  const submit = async () => {
+    if (!checked.ok || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await onRespond?.(sessionId, request.id, { answers: buildAnswers(questions, draft) })
+      if (result && !result.ok) setError(result.reason)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return h('li', { className: 'request request-question', 'data-request-kind': 'question', 'data-request-id': request.id },
+    questions.map((q, qi) =>
+      h('fieldset', { key: qi, className: 'question', 'data-multi': q.multiSelect },
+        h('legend', null,
+          q.header && h('span', { className: 'question-header' }, q.header),
+          h('span', { className: 'question-text' }, q.question),
+          q.multiSelect && h('span', { className: 'hint' }, '（複数選択）'),
+        ),
+        q.options.map((o, oi) =>
+          h('label', { key: oi, className: 'option' },
+            h('input', {
+              type: q.multiSelect ? 'checkbox' : 'radio', name: `${request.id}-${qi}`, checked: draft[qi].selected.includes(o.label),
+              onChange: () => setDraft(toggleOption(draft, qi, q, o.label)),
+            }),
+            h('span', { className: 'option-label' }, o.label),
+            o.description && h('span', { className: 'option-description' }, o.description),
+          )),
+        h('label', { className: 'option option-other' },
+          h('span', { className: 'option-label' }, 'その他'),
+          h('input', {
+            type: 'text', className: 'other-input', 'aria-label': `${q.header || q.question}の自由入力`, value: draft[qi].other,
+            onChange: (e) => setDraft(setOther(draft, qi, q, e.target.value)),
+          }),
+        ),
+      )),
+    h('div', { className: 'request-actions' },
+      h('button', { type: 'button', className: 'send', disabled: !checked.ok || busy, onClick: submit }, busy ? '送信中…' : '回答する'),
+      !checked.ok && h('span', { className: 'hint', 'data-hint': 'invalid' }, checked.reason),
+      error && h('span', { className: 'hint request-error', role: 'alert' }, error),
+    ),
+  )
+}
+
+// 応答待ちの要求と、閉じた要求の結果（AC-005-5, 005-6）
+export const Requests = ({ sessionId, requests, records, onRespond, onDismiss }) =>
+  h('ul', { className: 'requests' },
+    requests.map((r) =>
+      r.kind === 'permission'
+        ? h(PermissionCard, { key: r.id, sessionId, request: r, onRespond })
+        : h(QuestionCard, { key: r.id, sessionId, request: r, onRespond })),
+    records.map((r) =>
+      h('li', { key: `r-${r.id}`, className: `request-result request-result-${r.status}`, 'data-request-status': r.status },
+        h('span', { className: 'request-status' }, REQUEST_LABEL[r.status] ?? r.status),
+        r.summary && h('span', { className: 'request-summary', title: r.summary }, r.summary),
+        r.reason && h('span', { className: 'instruction-reason' }, r.reason),
+        h('button', { type: 'button', className: 'instruction-action', 'aria-label': '結果を閉じる', onClick: () => onDismiss?.(r.id) }, '×'),
+      )),
+  )
+
+export const Row = ({ session, elapsedMs, records = [], requestRecords = [], onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
   const [open, setOpen] = useState(false)
   const prompt = formatPrompt(session.lastPrompt)
   const pending = session.pending ?? []
+  const requests = session.requests ?? []
   const shown = records.filter((r) => r.status !== 'held')
   return h('li', {
     className: `row state-${session.state}`, 'data-state': session.state, 'data-session-id': session.sessionId,
@@ -105,7 +218,9 @@ export const Row = ({ session, elapsedMs, records = [], onSend, onCancel, onDism
       type: 'button', className: session.controllable ? 'send-toggle' : 'send-toggle send-toggle-off', 'aria-expanded': open,
       onClick: () => setOpen(!open),
     }, '指示を送る'),
-    (open || pending.length > 0 || shown.length > 0) && h('div', { className: 'row-extra' },
+    (open || pending.length > 0 || shown.length > 0 || requests.length > 0 || requestRecords.length > 0) && h('div', { className: 'row-extra' },
+      (requests.length > 0 || requestRecords.length > 0) &&
+        h(Requests, { sessionId: session.sessionId, requests, records: requestRecords, onRespond, onDismiss: onDismissRequest }),
       open && h(Composer, { session, onSend }),
       (pending.length > 0 || shown.length > 0) &&
         h(Instructions, { pending, records: shown, onCancel, onDismiss, sessionId: session.sessionId }),
@@ -113,7 +228,7 @@ export const Row = ({ session, elapsedMs, records = [], onSend, onCancel, onDism
   )
 }
 
-export const Group = ({ group, collapsed, onToggle, now, instructions, onSend, onCancel, onDismiss }) => {
+export const Group = ({ group, collapsed, onToggle, now, instructions, requestRecords, onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
   const { counts } = group
   return h('section', { className: 'group', 'data-account': group.key },
     h('button', {
@@ -131,13 +246,14 @@ export const Group = ({ group, collapsed, onToggle, now, instructions, onSend, o
       group.sessions.map((s) => h(Row, {
         key: s.sessionId, session: s, elapsedMs: now - s.stateSince,
         records: instructions ? recordsFor(instructions, s.sessionId) : [],
-        onSend, onCancel, onDismiss,
+        requestRecords: requestRecords ? requestRecordsFor(requestRecords, s.sessionId) : [],
+        onSend, onCancel, onDismiss, onRespond, onDismissRequest,
       }))),
   )
 }
 
 // state: client.mjs の状態、now: 補正済みの現在時刻（ミリ秒）
-export const App = ({ state, now, filter, collapsed = new Set(), onFilter, onToggle, onSend, onCancel, onDismiss }) => {
+export const App = ({ state, now, filter, collapsed = new Set(), onFilter, onToggle, onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
   const sessions = [...state.sessions.values()]
   const counts = countStates(sessions)
   const groups = groupByAccount(sessions, filter)
@@ -154,7 +270,7 @@ export const App = ({ state, now, filter, collapsed = new Set(), onFilter, onTog
             ? h('p', { className: 'empty' }, '要対応のセッションはありません')
             : groups.map((g) => h(Group, {
               key: g.key, group: g, collapsed: collapsed.has(g.key), onToggle, now,
-              instructions: state.instructions, onSend, onCancel, onDismiss,
+              instructions: state.instructions, requestRecords: state.requestRecords, onSend, onCancel, onDismiss, onRespond, onDismissRequest,
             }))),
   )
 }

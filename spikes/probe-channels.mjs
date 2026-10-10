@@ -53,6 +53,9 @@ mcp.setNotificationHandler(PermissionRequest, async ({ params }) => {
   log('permission_request', params)
 })
 
+// 想定していない通知（許可プロンプトの解決済みを知らせるものなど）が来ていないか記録する
+mcp.fallbackNotificationHandler = async (n) => log('unknown-notification', { method: n.method, params: n.params ?? null })
+
 mcp.oninitialized = () => log('initialized', { clientCapabilities: mcp.getClientCapabilities?.() ?? null, clientVersion: mcp.getClientVersion?.() ?? null })
 
 process.stdin.on('end', () => { log('stdin-end'); process.exit(0) })
