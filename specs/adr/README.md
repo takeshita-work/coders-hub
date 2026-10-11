@@ -31,3 +31,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0015 | 画面を「サイドバー（ツリー）＋詳細」にし、許可・質問は会話の中で応答する | Accepted |
 | 0016 | 会話は、画面から要求されたときに会話ログから読み、Hub は保持しない | Accepted |
 | 0017 | 応答の Markdown は、marked で字句解析し、React の要素に組み立てて整形する | Accepted |
+| 0018 | 配布は、単一の exe（Node の Single Executable Applications）を、GitHub のリリースで行う | Accepted |

@@ -16,6 +16,7 @@
 | REQ-007 | セッションの会話（最後の発言と応答から、さかのぼって）を参照できる | 次 | Draft |
 | REQ-006 | 外出先からも認証付きで利用できる | 次 | Draft |
 | REQ-009 | Claude Code 以外の AI ツールを、接続部品の追加で扱える | 設計のみ | Draft |
+| REQ-011 | 開発環境（Node.js）のない利用者が、GitHub のリリースから入手した exe だけで使い始められる | 次 | Draft |
 
 ## 補足
 - MVP は「一覧のみ」。成功の基準 1 位「気づける」に対応する（`../../00-product/vision.md`）。
@@ -39,4 +40,5 @@
 | `003-permission-relay` | REQ-004, REQ-005 | 次 |
 | `004-transcript-view` | REQ-007 | 次 |
 | `005-remote-access` | REQ-006 | 次 |
+| `007-distribution` | REQ-011 | 次 |
 | `006-dashboard-layout` | 画面構成（REQ-001, 008, 010 の表示の置き換えと、REQ-002〜005 の操作の置き場所） | 次 |

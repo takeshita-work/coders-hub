@@ -10,7 +10,8 @@
 ├── 003-permission-relay/    # REQ-004, 005
 ├── 004-transcript-view/     # REQ-007
 ├── 005-remote-access/       # REQ-006
-└── 006-dashboard-layout/    # 画面構成（サイドバー＋詳細、スマホ。ADR 0015）
+├── 006-dashboard-layout/    # 画面構成（サイドバー＋詳細、スマホ。ADR 0015）
+└── 007-distribution/        # 配布（GitHub リリースと単一の exe。ADR 0018）
 ```
 
 上記は案。MVP の `001-session-list` から、着手するときにフォルダを作る。
