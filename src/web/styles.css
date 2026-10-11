@@ -142,13 +142,13 @@ button { cursor: pointer; }
 .card { margin-top: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .detail .d-body > .card:first-child { margin-top: 0; }
 .card h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: .02em; color: var(--muted); }
-.talk { display: grid; gap: 8px; }
+.talk { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; } /* 長い 1 語（URL・パス）で列が広がり、幅からはみ出して切れないようにする */
 .talk > .card { margin-top: 4px; }
 .card.c-permission { background: var(--permission-bg); }
 .card.c-question { background: var(--question-bg); }
 .card.c-permission h3 { color: var(--permission); }
 .card.c-question h3 { color: var(--question); }
-.msg { max-width: 90%; padding: 8px 10px; border-radius: 10px; background: var(--surface2); white-space: pre-wrap; }
+.msg { min-width: 0; max-width: 90%; padding: 8px 10px; border-radius: 10px; background: var(--surface2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .msg small { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; color: var(--muted); }
 .dismiss { margin-left: auto; min-width: 24px; min-height: 24px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 16px; line-height: 1; }
 .instruction-reason { margin-top: 2px; font-size: 12px; color: var(--waiting); }
@@ -230,3 +230,33 @@ button { cursor: pointer; }
 .conv-note { margin: 0; text-align: center; font-size: 12px; color: var(--muted); }
 .conv-error { color: var(--waiting); }
 .btn.more { justify-self: center; min-height: 28px; font-size: 12px; }
+
+/* 会話の整形（Markdown）。Claude の応答は、ブロックの構造を作るので、折り返しは Markdown に任せる */
+.msg.md-msg { white-space: normal; }
+.md { min-width: 0; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md-p { margin: 6px 0; }
+.md-h { margin: 12px 0 4px; font-weight: 700; line-height: 1.35; }
+.md-h1 { font-size: 1.25em; }
+.md-h2 { font-size: 1.15em; }
+.md-h3 { font-size: 1.05em; }
+.md-h4 { font-size: 1em; color: var(--muted); }
+.md-list { margin: 6px 0; padding-left: 1.5em; }
+.md-list li { margin: 2px 0; }
+.md-list li > .md-p { margin: 2px 0; }
+.md-list .md-list { margin: 2px 0; }
+.md-task { list-style: none; margin-left: -1.2em; }
+.md-task input { margin-right: 6px; }
+.md-code { padding: 1px 5px; border-radius: 4px; font: 0.9em/1.4 ui-monospace, Consolas, monospace; background: var(--surface); border: 1px solid var(--border); overflow-wrap: anywhere; }
+.md-pre { position: relative; margin: 8px 0; padding: 8px 10px; overflow-x: auto; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre; overflow-wrap: normal; }
+.md-pre code { font: inherit; }
+.md-lang { position: absolute; top: 2px; right: 8px; font-size: 10px; color: var(--muted); }
+.md-quote { margin: 8px 0; padding: 2px 10px; border-left: 3px solid var(--border); color: var(--muted); }
+.md-hr { margin: 10px 0; border: 0; border-top: 1px solid var(--border); }
+.md-link { color: var(--working); text-decoration: underline; }
+.md-image { color: var(--muted); font-style: italic; }
+.md-table-wrap { margin: 8px 0; max-width: 100%; overflow-x: auto; }
+.md-table { border-collapse: collapse; font-size: 0.95em; }
+.md-table th, .md-table td { padding: 3px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: normal; white-space: nowrap; }
+.md-table th { background: var(--surface); font-weight: 700; }

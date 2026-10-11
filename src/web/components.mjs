@@ -7,6 +7,7 @@ import {
   formatElapsed, formatPrompt, isAttention, isFinal, parsePreview, prependOlder, previewLength, projectName, recordsFor, requestRecordsFor,
   setOther, shortId, sidebarAllowRequest, toggleOption, validateAnswers, validateInstruction, withConversationError,
 } from './logic.mjs'
+import { Markdown } from './markdown.mjs'
 
 // ---- 許可要求・質問（会話の中のカード。機能 003） ----
 
@@ -159,9 +160,10 @@ export const ConversationMessage = ({ message, running }) => {
         h('div', { className: 'res-q' }, a.question), a.answer !== null && h('div', { className: 'res-a' }, a.answer))))
   }
   const user = message.role === 'user'
-  return h('div', { className: `msg${user ? ' user' : ''}`, 'data-conversation': message.role, 'data-instruction-id': message.instructionId ?? undefined },
+  // Claude の応答は Markdown として整形する（HTML は文字のまま。AC-007-6）。利用者の発言は、書いたとおりの文字で出す
+  return h('div', { className: `msg${user ? ' user' : ' md-msg'}`, 'data-conversation': message.role, 'data-instruction-id': message.instructionId ?? undefined },
     h('small', null, user ? 'あなた' : 'Claude', message.source === 'dashboard' && h('span', { className: 'tag-src' }, 'ダッシュボードから'), h(Time, { at: message.at })),
-    message.text,
+    user ? message.text : h(Markdown, { text: message.text }),
     message.truncated && h('span', { className: 'truncated' }, '…（以下省略）'))
 }
 
@@ -252,8 +254,9 @@ export const StatusLine = ({ session, elapsedMs }) =>
 
 // ---- 詳細（メイン） ----
 
-// 一番下から離れているとみなす距離（px）
+// 一番下から離れているとみなす距離（px）。上の端の近くとみなす距離（px。ここまで来たら、前の会話を読み込む）
 const AWAY_PX = 160
+const LOAD_OLDER_PX = 300
 
 export const Detail = ({ session, now, instructions, requestRecords, fetchConversation, onBack, onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
   const scroller = useRef(null)
@@ -300,12 +303,28 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
     const ok = await loadOlder()
     if (!ok) anchor.current = null
   }
+  // 上の端の近くまでスクロールしたら、前の会話を自動で読み込む（ボタンは使わない。AC-007-8）
+  const loadIfNearTop = () => {
+    const el = scroller.current
+    if (el && conv.cursor !== null && !loadingOlder && el.scrollTop <= LOAD_OLDER_PX) more()
+  }
+  // 内容が画面に満たないときは、スクロールできないので、満たすまで自動で読み込む（同じ位置からの読み込みは 1 回だけ）
+  const filledFor = useRef(null)
+  useEffect(() => {
+    const el = scroller.current
+    if (!el || conv.cursor === null || loadingOlder || filledFor.current === conv.cursor) return
+    if (el.scrollHeight - el.clientHeight <= LOAD_OLDER_PX) {
+      filledFor.current = conv.cursor
+      more()
+    }
+  }, [conv.cursor, conv.messages.length, loadingOlder])
   const onScroll = () => {
     const el = scroller.current
     if (!el) return
     const isAway = el.scrollHeight - el.scrollTop - el.clientHeight > AWAY_PX
     awayRef.current = isAway
     setAway(isAway)
+    loadIfNearTop()
   }
 
   // 末尾のツールの行（あとに発言や応答がない）は、実行中として出す
@@ -322,7 +341,7 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
     ),
     h('div', { className: 'd-body' },
       h('div', { className: 'talk' },
-        conv.cursor !== null && h('button', { type: 'button', className: 'btn more', disabled: loadingOlder, onClick: more }, loadingOlder ? '読み込んでいます…' : 'さらに表示'),
+        loadingOlder && h('p', { className: 'conv-note', role: 'status', 'data-conversation-note': 'loading' }, '前の会話を読み込んでいます…'),
         conv.error && (conv.error === 'no-transcript'
           ? conv.messages.length === 0 && h('p', { className: 'conv-note', 'data-conversation-note': 'none' }, '会話の記録がまだありません')
           : h('p', { className: 'conv-note conv-error', role: 'status', 'data-conversation-note': 'error' }, '会話を読み込めません')),

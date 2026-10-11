@@ -127,7 +127,7 @@ describe('メッセージの表示（AC-007-2〜7）', () => {
     const user = html(msg(1, { at: new Date(2026, 9, 11, 14, 30).getTime() }))
     assert.match(user, /class="msg user"/)
     assert.match(text(user), /あなた 14:30 発言 1/)
-    assert.match(html({ id: '2', role: 'assistant', text: '応答', at: 1 }), /class="msg"[^>]*data-conversation="assistant"/)
+    assert.match(html({ id: '2', role: 'assistant', text: '応答', at: 1 }), /class="msg md-msg"[^>]*data-conversation="assistant"/)
   })
 
   it('AC-007-3: ダッシュボードから送った指示には、目印が付く', () => {
@@ -148,10 +148,17 @@ describe('メッセージの表示（AC-007-2〜7）', () => {
     assert.match(text(out), /質問.*好きな色は？ 赤 果物は？/)
   })
 
-  it('AC-007-6: 文章は、HTML・Markdown として解釈されず、文字として出る', () => {
+  it('AC-007-6: Claude の応答は Markdown として整形され、文章の中の HTML は、解釈されず文字として出る', () => {
     const out = html({ id: '1', role: 'assistant', at: 1, text: '<img src=x onerror=alert(1)> **太字**' })
     assert.doesNotMatch(out, /<img/)
-    assert.match(out, /&lt;img src=x onerror=alert\(1\)&gt; \*\*太字\*\*/)
+    assert.match(out, /&lt;img src=x onerror=alert\(1\)&gt;/)
+    assert.match(out, /<strong>太字<\/strong>/)
+  })
+
+  it('AC-007-6: 利用者の発言は、書いたとおりの文字で出る（Markdown にしない）', () => {
+    const out = html(msg(1, { text: '**そのまま** と <b>タグ</b>' }))
+    assert.doesNotMatch(out, /<strong>|<b>/)
+    assert.match(out, /\*\*そのまま\*\* と &lt;b&gt;タグ&lt;\/b&gt;/)
   })
 
   it('AC-007-7: 省略された発言には、省略の表示が付く', () => {
@@ -192,15 +199,15 @@ describe('詳細での表示と更新（AC-007-1, 3, 8, 10〜12, 17）', () => {
     assert.equal(container.querySelectorAll('[data-conversation]').length, 0)
   })
 
-  it('AC-007-8: 「さらに表示」で前の分が加わり、先頭まで読むとボタンが消える', async () => {
+  it('AC-007-8: 内容が画面に満たないとき（スクロールできない）は、前の分が自動で読み込まれ、先頭まで読むと止まる。ボタンはない', async () => {
     const { fn, calls } = pageFetcher([ok([msg(100)], 100), ok([msg(10), msg(50)], null)])
     const { container } = render(detail({ fetchConversation: fn }))
-    const button = await screen.findByRole('button', { name: 'さらに表示' })
-    fireEvent.click(button)
     await waitFor(() => assert.match(container.textContent, /発言 10/))
     assert.equal(calls[1].before, 100)
     assert.deepEqual([...container.querySelectorAll('[data-conversation="user"]')].map((e) => e.textContent.match(/発言 \d+/)[0]), ['発言 10', '発言 50', '発言 100'])
     assert.equal(screen.queryByRole('button', { name: 'さらに表示' }), null)
+    await act(async () => { await new Promise((r) => setTimeout(r, 100)) })
+    assert.equal(calls.filter((c) => c.before !== undefined && c.before !== null).length, 1, '先頭まで読んだら、これ以上は読まない')
   })
 
   it('AC-007-3: ログに現れた指示の「届きました」の記録は、出さない。保留中は出す', async () => {
@@ -243,23 +250,33 @@ describe('スクロール（機能 006 の AC-UI-23 を会話にも）', () => {
   }
   const props = (fetchConversation) => ({ session: sess(), now: 10_000, instructions: new Map(), requestRecords: new Map(), onBack() {}, fetchConversation })
 
-  it('「さらに表示」で前に足したとき、いま見ている位置が動かない（増えた高さの分だけ足す）', async () => {
+  it('上の端の近くまでスクロールすると、前の分が自動で読み込まれ、いま見ている位置が動かない（増えた高さの分だけ足す）', async () => {
     const pages = [{ status: 'ok', messages: [msg(100)], cursor: 100, etag: 'a' }, { status: 'ok', messages: [msg(10)], cursor: null }]
-    const { container } = render(h(Detail, props(async () => pages.shift() ?? { status: 'notModified' })))
-    const button = await screen.findByRole('button', { name: 'さらに表示' })
+    const calls = []
+    const { container } = render(h(Detail, props(async (id, options) => { calls.push(options); return pages.shift() ?? { status: 'notModified' } })))
     const el = container.querySelector('.detail')
-    const sc = fakeScroll(el)
+    const sc = fakeScroll(el) // 画面より長い（自動の補充は起きない）
+    await screen.findByText(/発言 100/)
+    assert.equal(calls.length, 1)
     sc.top = 100
     const origHeight = sc.height
-    // 前の分が足されると、高さが 600 増える
-    el.addEventListener('scroll', () => {})
-    const clickPromise = (async () => {
-      fireEvent.click(button)
-      sc.height = origHeight + 600
-    })()
-    await clickPromise
+    fireEvent.scroll(el) // 上の端の近く（300px 以内）
+    sc.height = origHeight + 600 // 前の分が足されると、高さが 600 増える
     await waitFor(() => assert.match(container.textContent, /発言 10/))
+    assert.equal(calls[1].before, 100)
     assert.equal(sc.top, 700, '100 + 増えた高さ 600')
+  })
+
+  it('上の端から離れている間は、前の分を読み込まない', async () => {
+    const calls = []
+    const { container } = render(h(Detail, props(async (id, options) => { calls.push(options); return { status: 'ok', messages: [msg(100)], cursor: 100, etag: 'a' } })))
+    const el = container.querySelector('.detail')
+    const sc = fakeScroll(el)
+    await screen.findByText(/発言 100/)
+    sc.top = 1000
+    fireEvent.scroll(el)
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    assert.equal(calls.filter((c) => c.before !== undefined && c.before !== null).length, 0)
   })
 
   it('会話の新着は、上を読んでいるときは動かさず、一番下の近くにいるときは一番下へ', async () => {
