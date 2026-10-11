@@ -1,6 +1,6 @@
 # 006 ダッシュボードの画面構成 実装計画
 
-- ステータス: Draft
+- ステータス: Approved
 - 対応 spec: ./spec.md
 - 関連 ADR: 0015
 - 参考: 試作 `../../20-design/screens/mockup/index.html`（見た目の基準。ダミーデータのみで Hub には接続しない）

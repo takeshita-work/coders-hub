@@ -1,6 +1,6 @@
 # 006 ダッシュボードの画面構成（サイドバー＋詳細、スマホ対応）
 
-- ステータス: Draft（試作 `../../20-design/screens/mockup/index.html` で確認した内容。合意後に Approved）
+- ステータス: Approved（2026-10-11。試作 `../../20-design/screens/mockup/index.html` で確認した内容）
 - 対応要件: REQ-001, REQ-008, REQ-010（表示の置き換え）、REQ-002, REQ-003, REQ-004, REQ-005（操作の置き場所の変更）
 - 関連 NFR: NFR-002, NFR-003, NFR-009, NFR-010
 - 関連 ADR: 0015（この構成の判断）、0003、0009、0010、0012、0013、0014
