@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  accountName, countStates, formatElapsed, formatPrompt, groupByAccount, projectName,
-  reduceMessage, shortId, sortSessions, titleFor,
+  SHORT_LABEL, accountName, applyUiPatch, buildTree, countStates, formatElapsed, formatPrompt, isAttention, projectName,
+  reduceMessage, shortId, sidebarAllowRequest, titleFor,
 } from '../src/web/logic.mjs'
 
 const s = (id, state, since, extra = {}) => ({
@@ -36,82 +36,129 @@ describe('reduceMessage', () => {
   })
 })
 
-describe('sortSessions', () => {
-  it('AC-001-9: 許可待ち → 返答待ち → 作業中、同じ状態の中は新しい順', () => {
-    const sorted = sortSessions([
-      s('w-old', 'working', 100), s('p-old', 'permission', 100), s('r-new', 'waiting', 500),
-      s('w-new', 'working', 900), s('r-old', 'waiting', 200), s('p-new', 'permission', 300),
-    ])
-    assert.deepEqual(sorted.map((x) => x.sessionId), ['p-new', 'p-old', 'r-new', 'r-old', 'w-new', 'w-old'])
-  })
-
-  it('時刻が同じなら sessionId で安定した順になる', () => {
-    assert.deepEqual(sortSessions([s('b', 'working', 1), s('a', 'working', 1)]).map((x) => x.sessionId), ['a', 'b'])
-  })
-})
-
-describe('質問待ち（ADR 0010）', () => {
-  it('AC-001-10: 許可待ち → 質問待ち → 返答待ち → 作業中の順に並ぶ', () => {
-    const sorted = sortSessions([s('w', 'working', 9), s('r', 'waiting', 9), s('q', 'question', 1), s('p', 'permission', 1)])
-    assert.deepEqual(sorted.map((x) => x.sessionId), ['p', 'q', 'r', 'w'])
-  })
-
-  it('要対応に含まれ、「要対応のみ」に残る（AC-010-5）', () => {
-    const groups = groupByAccount([s('q', 'question', 1), s('w', 'working', 1)], 'attention')
-    assert.deepEqual(groups[0].sessions.map((x) => x.sessionId), ['q'])
-    assert.equal(groups[0].counts.question, 1)
-  })
-})
-
-describe('groupByAccount', () => {
+describe('buildTree（機能 006: アカウント → プロジェクト → セッション）', () => {
+  const A = 'C:\\x\\.claude-a'
+  const B = 'C:\\x\\.claude-b'
   const list = [
-    s('a1', 'working', 1, { account: 'C:\\x\\.claude-a' }),
-    s('a2', 'permission', 2, { account: 'C:\\x\\.claude-a' }),
-    s('b1', 'waiting', 3, { account: 'C:\\x\\.claude-b' }),
-    s('b2', 'working', 4, { account: 'C:\\x\\.claude-b' }),
-    s('n1', 'working', 5, { account: null }),
+    s('a-late', 'working', 1, { account: A, cwd: 'D:\\w\\zeta', startedAt: 500 }),
+    s('a-early', 'permission', 2, { account: A, cwd: 'D:\\w\\zeta', startedAt: 100 }),
+    s('a-alpha', 'waiting', 3, { account: A, cwd: 'D:\\w\\alpha', startedAt: 300 }),
+    s('b-1', 'working', 4, { account: B, cwd: 'D:\\w\\proj', startedAt: 50 }),
+    s('n-1', 'working', 5, { account: null, cwd: null, startedAt: 700 }),
   ]
+  const ids = (tree) => tree.flatMap((a) => a.projects.flatMap((p) => p.sessions.map((x) => x.sessionId)))
 
-  it('AC-008-1: アカウントごとのグループに分かれ、グループ内が並んでいる', () => {
-    const groups = groupByAccount(list)
-    assert.equal(groups.length, 3)
-    const a = groups.find((g) => g.name === '.claude-a')
-    assert.deepEqual(a.sessions.map((x) => x.sessionId), ['a2', 'a1'])
-    assert.equal(groups.find((g) => g.key === '').name, '（既定のアカウント）')
+  it('AC-UI-4: アカウント → プロジェクト → セッションに分かれる', () => {
+    const tree = buildTree(list)
+    assert.deepEqual(tree.map((a) => a.name), ['.claude-b', '.claude-a', '（既定のアカウント）'])
+    const a = tree.find((x) => x.name === '.claude-a')
+    assert.deepEqual(a.projects.map((p) => p.name), ['alpha', 'zeta'])
+    assert.equal(tree.find((x) => x.key === '').projects[0].name, '（不明）')
   })
 
-  it('AC-008-2, AC-008-3: 同じアカウント・同じ cwd の複数セッションは別々に残る', () => {
-    const g = groupByAccount([s('x1', 'working', 1), s('x2', 'working', 2)])
-    assert.equal(g[0].sessions.length, 2)
+  it('AC-UI-6: アカウントは、起動が最も早いセッションを持つ順', () => {
+    // b は 50、a は 100、既定は 700
+    assert.deepEqual(buildTree(list).map((a) => a.key), [B, A, ''])
   })
 
-  it('グループの件数は要対応を含めて数える', () => {
-    const b = groupByAccount(list).find((g) => g.name === '.claude-b')
-    assert.deepEqual([b.counts.waiting, b.counts.working, b.counts.total], [1, 1, 2])
+  it('AC-UI-6: プロジェクトは名前の昇順／降順', () => {
+    const projects = (dirSort) => buildTree(list, { dirSort }).find((a) => a.key === A).projects.map((p) => p.name)
+    assert.deepEqual(projects('asc'), ['alpha', 'zeta'])
+    assert.deepEqual(projects('desc'), ['zeta', 'alpha'])
   })
 
-  it('AC-010-5: 要対応のみ、では返答待ち・許可待ちだけが残り、空になったグループは消える', () => {
-    const groups = groupByAccount(list, 'attention')
-    assert.deepEqual(groups.flatMap((g) => g.sessions.map((x) => x.sessionId)).sort(), ['a2', 'b1'])
-    assert.equal(groups.some((g) => g.key === ''), false)
+  it('AC-UI-6: セッションは起動の早い順／遅い順', () => {
+    const zeta = (sessSort) => buildTree(list, { sessSort }).find((a) => a.key === A).projects.find((p) => p.name === 'zeta').sessions.map((x) => x.sessionId)
+    assert.deepEqual(zeta('early'), ['a-early', 'a-late'])
+    assert.deepEqual(zeta('late'), ['a-late', 'a-early'])
   })
 
-  it('AC-008-4: 絞り込んでも、グループの件数は絞り込み前の全体', () => {
-    const b = groupByAccount(list, 'attention').find((g) => g.name === '.claude-b')
-    assert.equal(b.counts.total, 2)
+  it('AC-UI-7: 状態が変わっても、並びは変わらない（状態では並べ替えない）', () => {
+    const before = ids(buildTree(list))
+    const changed = list.map((x) => (x.sessionId === 'a-late' ? { ...x, state: 'permission' } : x))
+    assert.deepEqual(ids(buildTree(changed)), before)
+  })
+
+  it('startedAt がない古い形式でも、状態の時刻で並べられる', () => {
+    const old = [s('x', 'working', 900), s('y', 'working', 100)]
+    assert.deepEqual(ids(buildTree(old)), ['y', 'x'])
+  })
+
+  it('AC-UI-8: 同じアカウント・同じプロジェクトのセッションは別々に残る', () => {
+    const tree = buildTree([s('x1', 'working', 1), s('x2', 'working', 2)])
+    assert.equal(tree[0].projects[0].sessions.length, 2)
+  })
+
+  it('AC-UI-5: アカウント・プロジェクトの件数（許可待ち・質問待ち）を数える', () => {
+    const tree = buildTree([s('p', 'permission', 1), s('q', 'question', 1), s('w', 'waiting', 1), s('k', 'working', 1)])
+    const c = tree[0].counts
+    assert.deepEqual([c.permission, c.question, c.total], [1, 1, 4])
+    assert.deepEqual([tree[0].projects[0].counts.permission, tree[0].projects[0].counts.question], [1, 1])
+  })
+
+  it('AC-UI-9: 「操作できるものだけ」では、操作モードのセッションだけが残り、空になったアカウントは消える', () => {
+    const mixed = [s('c1', 'working', 1, { controllable: true }), s('v1', 'working', 2, { controllable: false, account: 'C:\\x\\.claude-v' })]
+    const tree = buildTree(mixed, { onlyControl: true })
+    assert.deepEqual(ids(tree), ['c1'])
+    assert.equal(tree.length, 1)
+  })
+
+  it('ノードのキーは、アカウントとプロジェクトで一意', () => {
+    const tree = buildTree(list)
+    const keys = tree.flatMap((a) => [a.nodeKey, ...a.projects.map((p) => p.key)])
+    assert.equal(new Set(keys).size, keys.length)
   })
 })
 
-describe('countStates / titleFor', () => {
-  it('AC-010-3: 状態ごとの件数', () => {
+describe('要対応・札・件数・タイトル', () => {
+  it('AC-UI-12: 要対応は許可待ち・質問待ち。返答待ち・作業中は含まない', () => {
+    assert.deepEqual(['permission', 'question', 'waiting', 'working'].map((st) => isAttention(s('x', st, 1))), [true, true, false, false])
+  })
+
+  it('AC-UI-11: 札は許可／質問／作業。返答待ちには札がない', () => {
+    assert.deepEqual(SHORT_LABEL, { permission: '許可', question: '質問', working: '作業' })
+    assert.equal(SHORT_LABEL.waiting, undefined)
+  })
+
+  it('状態ごとの件数', () => {
     const c = countStates([s('1', 'permission', 1), s('2', 'waiting', 1), s('3', 'waiting', 1), s('4', 'working', 1)])
     assert.deepEqual(c, { permission: 1, question: 0, waiting: 2, working: 1, total: 4 })
     assert.equal(countStates([s('1', 'question', 1)]).question, 1)
   })
 
-  it('AC-010-4: 要対応があればタイトルに件数、0 件なら件数なし', () => {
-    assert.equal(titleFor({ permission: 2, question: 1, waiting: 3, working: 1, total: 7 }), '(6) Coders Hub')
-    assert.equal(titleFor({ permission: 0, question: 0, waiting: 0, working: 4, total: 4 }), 'Coders Hub')
+  it('AC-UI-28: 要対応（許可待ち・質問待ち）があればタイトルに件数、0 件なら件数なし', () => {
+    assert.equal(titleFor({ permission: 2, question: 1, waiting: 3, working: 1, total: 7 }), '(3) Coders Hub')
+    assert.equal(titleFor({ permission: 0, question: 0, waiting: 5, working: 4, total: 9 }), 'Coders Hub')
+  })
+})
+
+describe('サイドバーの「許可」ボタン（AC-UI-17, 18）', () => {
+  const req = (extra = {}) => ({ id: 'r1', kind: 'permission', toolName: 'Bash', inputPreview: '{ "command": "ls" }', ...extra })
+  const withReq = (r, extra = {}) => s('x', 'permission', 1, { controllable: true, requests: [r], ...extra })
+
+  it('短い許可要求（200 文字以下・省略なし）には出る', () => {
+    assert.equal(sidebarAllowRequest(withReq(req()))?.id, 'r1')
+    assert.equal(sidebarAllowRequest(withReq(req({ inputPreview: 'a'.repeat(200) })))?.id, 'r1')
+  })
+
+  it('長い入力・省略された入力・質問・操作できないセッションには出ない', () => {
+    assert.equal(sidebarAllowRequest(withReq(req({ inputPreview: 'a'.repeat(201) }))), null)
+    assert.equal(sidebarAllowRequest(withReq(req({ inputPreview: 'a\n⋯ 5 code points elided ⋯\nb' }))), null)
+    assert.equal(sidebarAllowRequest(withReq({ id: 'q1', kind: 'question', questions: [] })), null)
+    assert.equal(sidebarAllowRequest(withReq(req(), { controllable: false })), null)
+    assert.equal(sidebarAllowRequest(s('x', 'working', 1, { controllable: true })), null)
+  })
+})
+
+describe('画面の状態の更新', () => {
+  const ui = { selected: null, view: 'list', opts: false, collapsed: new Set(['a']) }
+  it('patch を重ね、toggle で折りたたみの有無を切り替える（元は変えない）', () => {
+    const next = applyUiPatch(ui, { selected: 's1', view: 'detail' })
+    assert.deepEqual([next.selected, next.view], ['s1', 'detail'])
+    const folded = applyUiPatch(ui, { toggle: 'b' })
+    assert.deepEqual([...folded.collapsed].sort(), ['a', 'b'])
+    assert.deepEqual([...ui.collapsed], ['a'])
+    assert.deepEqual([...applyUiPatch(folded, { toggle: 'a' }).collapsed], ['b'])
   })
 })
 

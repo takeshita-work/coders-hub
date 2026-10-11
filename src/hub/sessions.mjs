@@ -33,6 +33,8 @@ const view = (r) => ({
   cwd: r.cwd,
   state: r.state,
   stateSince: r.stateSince,
+  // セッションの起動時刻（ミリ秒）。サイドバーの起動順の並びに使う（機能 006、ADR 0015）
+  startedAt: r.startedAt,
   lastPrompt: r.lastPrompt,
   channelAlive: r.channelAlive,
   // 操作モードのチャネルサーバーが接続している = 指示を送れる（ADR 0011）
@@ -72,7 +74,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
 
   const create = (sessionId, state) => {
     const r = {
-      sessionId, account: null, cwd: null, state, stateSince: now(),
+      sessionId, account: null, cwd: null, state, stateSince: now(), startedAt: now(),
       lastPrompt: null, transcriptPath: null, channelAlive: false, lastPollAt: null,
       controllable: false, pending: [], requests: [],
       // 状態を推測で置いただけ（再起動後の復元など）。実際の状態が分かったら外す
@@ -202,6 +204,16 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
         if (r.state === target || typeof at !== 'number' || at <= r.stateSince) return false
         setState(r, target, at)
       }
+      commit(r, before)
+      return true
+    },
+
+    // claude 自身の状態ファイルの startedAt（ミリ秒）を反映する。Hub が初めて見た時刻より正確なので、置き換える（ADR 0015）
+    applyStartedAt(sessionId, at) {
+      const r = sessions.get(sessionId)
+      if (!r || !Number.isFinite(at) || at <= 0 || r.startedAt === at) return false
+      const before = JSON.stringify(view(r))
+      r.startedAt = at
       commit(r, before)
       return true
     },

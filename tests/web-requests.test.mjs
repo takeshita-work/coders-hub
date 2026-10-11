@@ -9,7 +9,7 @@ import {
   previewLength, reduceRequest, requestRecordsFor, setOther, summarizeRequest, toggleOption, validateAnswers,
 } from '../src/web/logic.mjs'
 import { createClient } from '../src/web/client.mjs'
-import { App, PermissionCard, QuestionCard, RequestInput, Requests } from '../src/web/components.mjs'
+import { App, PermissionCard, QuestionCard, RequestInput, ResultLine, defaultUi } from '../src/web/components.mjs'
 
 const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
 
@@ -121,7 +121,7 @@ describe('結果の記録（AC-005-5, 005-6）', () => {
     let records = reduceRequest(new Map(), { type: 'request', sessionId: 's1', id: 'abcde', status: 'open' }, summaries)
     assert.equal(records.size, 0)
     records = reduceRequest(records, { type: 'request', sessionId: 's1', id: 'abcde', status: 'terminal' }, summaries)
-    assert.deepEqual(records.get('abcde'), { id: 'abcde', sessionId: 's1', status: 'terminal', summary: 'Bash: List files' })
+    assert.deepEqual(records.get('abcde'), { id: 'abcde', sessionId: 's1', status: 'terminal', summary: 'Bash: List files', at: 0 })
     records = reduceRequest(records, { type: 'request', sessionId: 's1', id: 'zzz', status: 'failed', reason: 'セッションが終了しました' })
     assert.equal(records.get('zzz').reason, 'セッションが終了しました')
     assert.equal(records.get('zzz').summary, undefined)
@@ -175,7 +175,7 @@ describe('createClient（応答の送信と結果の記録）', () => {
     // Hub は、セッションの更新（要求が消える）を先に、request メッセージを後に送る
     ws.receive({ type: 'updated', session: sess('s1', { state: 'working', requests: [] }) })
     ws.receive({ type: 'request', sessionId: 's1', id: 'abcde', status: 'terminal' })
-    assert.deepEqual(last().requestRecords.get('abcde'), { id: 'abcde', sessionId: 's1', status: 'terminal', summary: 'Bash: List files' })
+    assert.deepEqual(last().requestRecords.get('abcde'), { id: 'abcde', sessionId: 's1', status: 'terminal', summary: 'Bash: List files', kind: 'permission', at: 10_000 })
     client.dismissRequest('abcde')
     assert.equal(last().requestRecords.size, 0)
   })
@@ -210,12 +210,13 @@ describe('部品の表示', () => {
   it('AC-004-7: 質問に、質問文・選択肢のラベルと説明・複数選択の表示・自由入力・回答ボタンが出る。未回答の間は送れない', () => {
     const html = renderToStaticMarkup(h(QuestionCard, { sessionId: 's1', request: questionRequest([colorQuestion, fruitQuestion]) }))
     const t = text(html)
-    for (const word of ['好きな色は？', '赤', '情熱', '青', '落ち着き', '好きな果物は？', 'りんご', '甘酸っぱい', '（複数選択）', 'その他', '回答する']) {
+    for (const word of ['好きな色は？', '赤', '情熱', '青', '落ち着き', '好きな果物は？', 'りんご', '甘酸っぱい', '（複数選択）', '回答する']) {
       assert.ok(t.includes(word), word)
     }
+    assert.match(html, /placeholder="その他（自由入力）"/)
     assert.match(html, /type="radio"/)
     assert.match(html, /type="checkbox"/)
-    assert.match(html, /<button[^>]*class="send"[^>]*disabled=""/)
+    assert.match(html, /<button[^>]*class="btn btn-primary"[^>]*disabled=""/)
     assert.ok(t.includes('すべての質問に答えてください'))
   })
 
@@ -224,7 +225,7 @@ describe('部品の表示', () => {
       { id: 'a', sessionId: 's1', status: 'terminal', summary: 'Bash: List files' },
       { id: 'b', sessionId: 's1', status: 'timeout', summary: '質問: 色' },
     ]
-    const html = renderToStaticMarkup(h(Requests, { sessionId: 's1', requests: [], records }))
+    const html = records.map((record) => renderToStaticMarkup(h(ResultLine, { record }))).join('')
     const t = text(html)
     assert.ok(t.includes(REQUEST_LABEL.terminal) && t.includes('Bash: List files'))
     assert.ok(t.includes(REQUEST_LABEL.timeout))
@@ -232,13 +233,14 @@ describe('部品の表示', () => {
     assert.match(html, /aria-label="結果を閉じる"/)
   })
 
-  it('AC-004-5: 行に応答待ちの要求があれば出る。なければ出ない', () => {
+  it('AC-004-5, AC-UI-20: 詳細に応答待ちの要求があれば出る。なければ出ない', () => {
     const withRequest = new Map([['s1', sess('s1', { requests: [permissionRequest(), questionRequest()] })]])
     const state = (sessions) => ({ sessions, connected: true, ready: true, offset: 0, instructions: new Map(), requestRecords: new Map(), requestSummaries: new Map() })
-    const html = renderToStaticMarkup(h(App, { state: state(withRequest), now: 10_000, filter: 'all' }))
+    const ui = { ...defaultUi(), selected: 's1', view: 'detail' }
+    const html = renderToStaticMarkup(h(App, { state: state(withRequest), now: 10_000, ui }))
     assert.match(html, /data-request-kind="permission"/)
     assert.match(html, /data-request-kind="question"/)
-    const none = renderToStaticMarkup(h(App, { state: state(new Map([['s1', sess('s1')]])), now: 10_000, filter: 'all' }))
+    const none = renderToStaticMarkup(h(App, { state: state(new Map([['s1', sess('s1')]])), now: 10_000, ui }))
     assert.doesNotMatch(none, /data-request-kind/)
   })
 })

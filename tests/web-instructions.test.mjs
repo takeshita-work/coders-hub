@@ -5,10 +5,10 @@ import assert from 'node:assert/strict'
 import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
-  MAX_INSTRUCTION, addRejected, addSubmitted, holdNotice, reconcileInstructions, recordsFor, reduceInstruction, validateInstruction,
+  MAX_INSTRUCTION, addRejected, addSubmitted, reconcileInstructions, recordsFor, reduceInstruction, validateInstruction,
 } from '../src/web/logic.mjs'
 import { createClient } from '../src/web/client.mjs'
-import { App, Composer, Instructions } from '../src/web/components.mjs'
+import { App, Composer, PendingMessage, SentMessage, defaultUi } from '../src/web/components.mjs'
 
 const sess = (id, extra = {}) => ({
   sessionId: id, state: 'waiting', stateSince: 1, account: 'C:\\x\\.claude-a', cwd: 'D:\\p', lastPrompt: null, channelAlive: true,
@@ -153,57 +153,52 @@ describe('createClient の送信（AC-002-1, 002-9, 003-3）', () => {
   })
 })
 
-describe('部品（AC-002-1, 002-4, 002-5, 002-6, 003-3）', () => {
-  it('AC-002-5: 操作できないセッションの入力欄は出ず、理由が出る', () => {
+describe('部品（AC-002-1, 002-4, 002-5, 002-6, 003-3、機能 006 AC-UI-22, 25, 26）', () => {
+  it('AC-002-5, AC-UI-26: 操作できないセッションの入力欄は無効で、「閲覧のみ」と表示される', () => {
     const html = renderToStaticMarkup(h(Composer, { session: sess('s1', { controllable: false }) }))
-    assert.match(text(html), /操作モードで起動していません/)
-    assert.doesNotMatch(html, /<textarea/)
+    assert.match(html, /<textarea[^>]*disabled=""[^>]*placeholder="閲覧のみ"/)
   })
 
-  it('AC-002-1, 002-4: 操作できるセッションは入力欄があり、空のうちは送信を押せない', () => {
+  it('AC-002-1, 002-4, AC-UI-25: 操作できるセッションは入力欄があり、送信ボタンはない', () => {
     const html = renderToStaticMarkup(h(Composer, { session: sess('s1') }))
-    assert.match(html, /<textarea[^>]*aria-label="指示"/)
-    assert.match(html, /<button[^>]*class="send"[^>]*disabled/)
-    assert.match(text(html), /0 \/ 10000/)
+    assert.match(html, /<textarea[^>]*aria-label="メッセージ"/)
+    assert.match(html, /placeholder="メッセージを入力"/)
+    assert.doesNotMatch(html, /<button/)
   })
 
-  it('AC-003-1: 返答待ち以外のセッションには、返答待ちになってから送られると案内する', () => {
-    assert.equal(holdNotice(sess('s1')), null)
-    for (const [state, label] of [['working', '作業中'], ['permission', '許可待ち'], ['question', '質問待ち']]) {
-      assert.match(holdNotice(sess('s1', { state })), new RegExp(`^${label}のため、返答待ちになってから送られます`))
-    }
-    assert.match(renderToStaticMarkup(h(Composer, { session: sess('s1', { state: 'working' }) })), /data-hint="hold"/)
-    assert.doesNotMatch(renderToStaticMarkup(h(Composer, { session: sess('s1') })), /data-hint="hold"/)
+  it('AC-UI-25: 上限を超えると理由が出る', () => {
+    // 初期表示は空なので、超過の表示は操作テスト（web-interactions）で確認する
+    assert.doesNotMatch(renderToStaticMarkup(h(Composer, { session: sess('s1') })), /data-hint="invalid"/)
   })
 
-  it('AC-003-3: 保留中の指示は一覧の行に表示され、取り消しの操作がある', () => {
+  it('AC-003-3, AC-UI-22: 保留中の指示は会話の中に出て、取り消しの操作がある', () => {
     const session = sess('s1', { state: 'working', pending: [{ id: 'a', createdAt: 1, preview: 'あとで頼む指示' }] })
     const state = { sessions: new Map([['s1', session]]), connected: true, ready: true, offset: 0, instructions: new Map() }
-    const html = renderToStaticMarkup(h(App, { state, now: 10_000, filter: 'all' }))
+    const html = renderToStaticMarkup(h(App, { state, now: 10_000, ui: { ...defaultUi(), selected: 's1', view: 'detail' } }))
     assert.match(html, /data-instruction-status="held"/)
     assert.match(text(html), /保留中 あとで頼む指示 取り消し/)
   })
 
-  it('AC-002-6: 結果が指示ごとに出る（理由つき）。終わったものには閉じる操作がある', () => {
+  it('AC-002-6: 結果が指示ごとに出る（理由つき）。届きました・送信中以外の終わったものには閉じる操作がある', () => {
     const records = [
-      { id: 'a', sessionId: 's1', status: 'confirmed', preview: '一つ目' },
-      { id: 'b', sessionId: 's1', status: 'missed', preview: '二つ目' },
-      { id: 'c', sessionId: 's1', status: 'unconfirmed', preview: '三つ目' },
-      { id: 'd', sessionId: 's1', status: 'failed', preview: '四つ目', reason: 'セッションが見つかりません' },
-      { id: 'e', sessionId: 's1', status: 'delivering', preview: '五つ目' },
+      { id: 'a', status: 'confirmed', preview: '一つ目' },
+      { id: 'b', status: 'missed', preview: '二つ目' },
+      { id: 'c', status: 'unconfirmed', preview: '三つ目' },
+      { id: 'd', status: 'failed', preview: '四つ目', reason: 'セッションが見つかりません' },
+      { id: 'e', status: 'delivering', preview: '五つ目' },
     ]
-    const html = renderToStaticMarkup(h(Instructions, { pending: [], records, sessionId: 's1' }))
+    const html = records.map((record) => renderToStaticMarkup(h(SentMessage, { record: { ...record, sessionId: 's1' } }))).join('')
     const t = text(html)
     for (const label of ['届きました', '指示として扱われませんでした', '届いたか確認できません', '送れませんでした', '送信中']) assert.match(t, new RegExp(label))
     assert.match(t, /セッションが見つかりません/)
-    assert.equal((html.match(/aria-label="結果を閉じる"/g) ?? []).length, 4, '送信中のものは閉じられない')
+    assert.equal((html.match(/aria-label="結果を閉じる"/g) ?? []).length, 3, '届きました・送信中のものは閉じられない')
   })
 
-  it('指示を送る操作は、どの行にもある', () => {
+  it('AC-UI-22: 指示を送る入力欄は、操作できるセッションの詳細にある', () => {
     const state = { sessions: new Map([['s1', sess('s1')], ['s2', sess('s2', { controllable: false })]]), connected: true, ready: true, offset: 0, instructions: new Map() }
-    const html = renderToStaticMarkup(h(App, { state, now: 10_000, filter: 'all' }))
-    assert.equal((html.match(/class="send-toggle[^"]*"/g) ?? []).length, 2)
-    assert.match(html, /send-toggle send-toggle-off/)
+    const open = (id) => renderToStaticMarkup(h(App, { state, now: 10_000, ui: { ...defaultUi(), selected: id, view: 'detail' } }))
+    assert.doesNotMatch(open('s1'), /<textarea[^>]*disabled/)
+    assert.match(open('s2'), /<textarea[^>]*disabled/)
   })
 
   it('addRejected: Hub を通らなかった指示は画面だけの ID で記録される', () => {

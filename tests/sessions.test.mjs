@@ -298,3 +298,31 @@ describe('直近の発言（チャネルから届いた指示）', () => {
     assert.equal(store.get('s1').lastPrompt, '普通の入力 <channel> を含む')
   })
 })
+
+describe('起動時刻 startedAt（機能 006、AC-UI-30）', () => {
+  it('AC-UI-30: Hub が初めて見た時刻で登録され、状態が変わっても変わらない', () => {
+    store.applyHookEvent(hook('SessionStart'))
+    assert.equal(store.get('s1').startedAt, 1_000)
+    tick(500)
+    store.applyHookEvent(hook('UserPromptSubmit', { prompt: 'x' }))
+    assert.equal(store.get('s1').startedAt, 1_000)
+    assert.equal(store.list()[0].startedAt, 1_000)
+  })
+
+  it('AC-UI-30: 状態ファイルの startedAt で置き換わり、変わったときだけ通知される', () => {
+    store.applyHookEvent(hook('SessionStart'))
+    changes.length = 0
+    assert.equal(store.applyStartedAt('s1', 400), true)
+    assert.equal(store.get('s1').startedAt, 400)
+    assert.deepEqual(changes.map((c) => c.type), ['updated'])
+    assert.equal(store.applyStartedAt('s1', 400), false)
+    assert.equal(changes.length, 1)
+  })
+
+  it('不正な値・未登録のセッションは無視する', () => {
+    store.applyHookEvent(hook('SessionStart'))
+    for (const bad of [undefined, null, '400', NaN, 0, -5]) assert.equal(store.applyStartedAt('s1', bad), false)
+    assert.equal(store.applyStartedAt('nope', 400), false)
+    assert.equal(store.get('s1').startedAt, 1_000)
+  })
+})

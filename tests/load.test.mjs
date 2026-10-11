@@ -82,11 +82,11 @@ describe('30 セッション', () => {
   it('AC-001-4: 30 行の画面を描画できる（描画時間が 100ms 以内）', () => {
     const state = { sessions, connected: true, ready: true, offset: 0 }
     const t0 = performance.now()
-    const html = renderToStaticMarkup(h(App, { state, now: Date.now(), filter: 'all' }))
+    const html = renderToStaticMarkup(h(App, { state, now: Date.now() }))
     const ms = performance.now() - t0
     console.log(`  30 行の描画: ${ms.toFixed(1)}ms`)
     assert.equal((html.match(/data-session-id=/g) ?? []).length, N)
-    assert.equal((html.match(/class="group"/g) ?? []).length, 3)
+    assert.equal((html.match(/data-node="a:/g) ?? []).length, 3)
     assert.ok(ms < 100)
   })
 

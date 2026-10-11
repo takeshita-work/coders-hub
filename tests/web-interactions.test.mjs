@@ -1,6 +1,6 @@
 // 画面の部品の操作（jsdom）。ボタンの押下・選択・入力が、応答の送信・折りたたみなどにつながることを確認する。
 // 静的な描画では動かせない onClick／onChange を確かめる（機能 002・003）
-// AC-004-1, 004-2, 004-3, 004-7〜004-10, 005-5, 005-6, 002-1, 003-3
+// AC-004-1, 004-2, 004-3, 004-7〜004-10, 005-5, 005-6, 002-1, 003-3、機能 006 の AC-UI-5, 6, 9, 17, 22〜26
 import { describe, it, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
@@ -14,7 +14,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const { createElement: h } = await import('react')
 const { render, screen, fireEvent, cleanup, waitFor, within } = await import('@testing-library/react')
-const { App, Composer, Group, Instructions, PermissionCard, QuestionCard, RequestInput, Requests, Row, Summary } = await import('../src/web/components.mjs')
+const { App, Composer, Detail, PendingMessage, PermissionCard, QuestionCard, RequestInput, ResultLine, SentMessage, SessionRow, defaultUi } = await import('../src/web/components.mjs')
 
 afterEach(() => cleanup())
 
@@ -153,119 +153,205 @@ describe('質問への回答の操作（AC-004-7〜004-10）', () => {
   })
 })
 
+
 describe('結果の表示の操作（AC-005-5, 005-6）', () => {
   it('結果の「×」を押すと、その要求の ID で閉じる操作が呼ばれる', () => {
     const dismissed = []
-    const records = [{ id: 'a', sessionId: 's1', status: 'terminal', summary: 'Bash: List files' }]
-    render(h(Requests, { sessionId: 's1', requests: [], records, onDismiss: (id) => dismissed.push(id) }))
+    const record = { id: 'a', sessionId: 's1', status: 'terminal', summary: 'Bash: List files' }
+    render(h(ResultLine, { record, onDismiss: (id) => dismissed.push(id) }))
     fireEvent.click(screen.getByRole('button', { name: '結果を閉じる' }))
     assert.deepEqual(dismissed, ['a'])
   })
 })
 
-describe('一覧の中の操作', () => {
+describe('サイドバーの操作（AC-UI-4〜6, 9, 17, 18）', () => {
   const state = (sessions, extra = {}) => ({
     sessions: new Map(sessions.map((s) => [s.sessionId, s])), connected: true, ready: true, offset: 0,
-    instructions: new Map(), requestRecords: new Map(), requestSummaries: new Map(), ...extra,
+    instructions: new Map(), requestRecords: new Map(), requestSummaries: new Map(), requestKinds: new Map(), ...extra,
   })
+  const app = (st, props = {}) => h(App, { state: st, now: 10_000, ui: defaultUi(), ...props })
 
-  it('行に出た許可要求の「許可」から、セッション ID と要求 ID で応答が送られる', async () => {
+  it('AC-UI-17: 短い許可要求の行の「許可」から、セッション ID と要求 ID で応答が送られる。拒否ボタンはない', async () => {
     const { calls, fn } = recorder()
-    render(h(App, { state: state([sess('s1', { requests: [permissionRequest()] })]), now: 10_000, filter: 'all', onRespond: fn }))
+    render(app(state([sess('s1', { requests: [permissionRequest()] })]), { onRespond: fn }))
+    assert.equal(screen.queryByRole('button', { name: '拒否' }), null)
     fireEvent.click(screen.getByRole('button', { name: '許可' }))
     await waitFor(() => assert.equal(calls.length, 1))
     assert.deepEqual(calls[0], ['s1', 'abcde', { behavior: 'allow' }])
   })
 
-  it('要求の結果が行に出て、閉じる操作が呼ばれる', () => {
+  it('AC-UI-18: 長い入力の要求・質問の行には「許可」ボタンが出ない', () => {
+    render(app(state([sess('s1', { requests: [permissionRequest({ inputPreview: 'x'.repeat(300) })] }), sess('s2', { requests: [questionRequest()] })])))
+    assert.equal(screen.queryByRole('button', { name: '許可' }), null)
+  })
+
+  it('行を押すと、そのセッションを選んで詳細に移る', () => {
+    const patches = []
+    render(app(state([sess('s1', { state: 'working' })]), { onUi: (p) => patches.push(p) }))
+    fireEvent.click(document.querySelector('[data-session-id="s1"] .sess-btn'))
+    assert.deepEqual(patches, [{ selected: 's1', view: 'detail' }])
+  })
+
+  it('AC-UI-5: アカウントとプロジェクトの見出しを押すと、折りたたみの切り替えが呼ばれる', () => {
+    const patches = []
+    render(app(state([sess('s1', { state: 'working' })]), { onUi: (p) => patches.push(p) }))
+    fireEvent.click(screen.getByRole('button', { name: /claude-a/ }))
+    fireEvent.click(document.querySelector('[data-node^="d:"] > .node-head'))
+    assert.deepEqual(patches, [{ toggle: 'a:C:\\x\\.claude-a' }, { toggle: 'd:C:\\x\\.claude-a/D:\\p' }])
+  })
+
+  it('AC-UI-6, 9: フィルター・ソートのボタンでパネルが開き、スイッチと 2 つのソートが呼ばれる', () => {
+    const patches = []
+    const { rerender } = render(app(state([sess('s1', { state: 'working' })]), { onUi: (p) => patches.push(p) }))
+    fireEvent.click(screen.getByRole('button', { name: 'フィルター・ソート' }))
+    assert.deepEqual(patches.pop(), { opts: true })
+    rerender(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), opts: true }, onUi: (p) => patches.push(p) }))
+    assert.equal(screen.getByRole('switch', { name: '操作できるものだけ' }).getAttribute('aria-checked'), 'false')
+    fireEvent.click(screen.getByRole('switch', { name: '操作できるものだけ' }))
+    fireEvent.click(screen.getByRole('button', { name: 'プロジェクトの並び' }))
+    fireEvent.click(screen.getByRole('button', { name: 'セッションの並び' }))
+    assert.deepEqual(patches, [{ onlyControl: true }, { dirSort: 'desc' }, { sessSort: 'late' }])
+  })
+
+  it('AC-UI-2: 詳細の戻るボタンで一覧に戻る', () => {
+    const patches = []
+    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), selected: 's1', view: 'detail' }, onUi: (p) => patches.push(p) }))
+    fireEvent.click(screen.getByRole('button', { name: '一覧へ' }))
+    assert.deepEqual(patches, [{ view: 'list' }])
+  })
+
+  it('SessionRow: 選択中の行は aria-current が付く', () => {
+    const { container } = render(h('ul', null, h(SessionRow, { session: sess('s1', { state: 'working' }), elapsedMs: 1000, selected: true })))
+    assert.equal(container.querySelector('.sess-btn').getAttribute('aria-current'), 'true')
+  })
+})
+
+describe('詳細の操作（AC-UI-20〜26）', () => {
+  const detailProps = (session, extra = {}) => ({
+    session, now: 10_000, instructions: new Map(), requestRecords: new Map(), onBack() {}, ...extra,
+  })
+
+  it('要求の結果が会話に出て、閉じる操作が呼ばれる', () => {
     const dismissed = []
-    const requestRecords = new Map([['a', { id: 'a', sessionId: 's1', status: 'timeout', summary: '質問: 色' }]])
-    render(h(App, { state: state([sess('s1', { state: 'working' })], { requestRecords }), now: 10_000, filter: 'all', onDismissRequest: (id) => dismissed.push(id) }))
+    const requestRecords = new Map([['a', { id: 'a', sessionId: 's1', status: 'timeout', summary: '質問: 色', at: 1 }]])
+    render(h(Detail, detailProps(sess('s1', { state: 'working' }), { requestRecords, onDismissRequest: (id) => dismissed.push(id) })))
     assert.ok(screen.getByText('時間切れ'))
     fireEvent.click(screen.getByRole('button', { name: '結果を閉じる' }))
     assert.deepEqual(dismissed, ['a'])
   })
 
-  it('絞り込みと、グループの折りたたみが呼ばれる', () => {
-    const filters = []
-    const toggles = []
-    const sessions = [sess('s1', { state: 'working' })]
-    render(h(App, { state: state(sessions), now: 10_000, filter: 'all', onFilter: (v) => filters.push(v), onToggle: (k) => toggles.push(k) }))
-    fireEvent.click(screen.getByRole('button', { name: '要対応のみ' }))
-    assert.deepEqual(filters, ['attention'])
-    fireEvent.click(screen.getByRole('button', { name: /claude-a/ }))
-    assert.deepEqual(toggles, ['C:\\x\\.claude-a'])
+  it('会話の中の許可要求の「許可」「拒否」から応答が送られる', async () => {
+    const { calls, fn } = recorder()
+    render(h(Detail, detailProps(sess('s1', { requests: [permissionRequest()] }), { onRespond: fn })))
+    fireEvent.click(screen.getByRole('button', { name: '拒否' }))
+    await waitFor(() => assert.equal(calls.length, 1))
+    assert.deepEqual(calls[0], ['s1', 'abcde', { behavior: 'deny' }])
   })
 
-  it('Summary の絞り込みボタンは、押されている方が分かる', () => {
-    render(h(Summary, { counts: { permission: 1, question: 0, waiting: 0, working: 0, total: 1 }, filter: 'attention' }))
-    assert.equal(screen.getByRole('button', { name: '要対応のみ' }).getAttribute('aria-pressed'), 'true')
-    assert.equal(screen.getByRole('button', { name: 'すべて' }).getAttribute('aria-pressed'), 'false')
-  })
-})
-
-describe('指示の入力の操作（AC-002-1, 002-4, 003-3）', () => {
-  it('入力して「送信」を押すと送られ、送れたら入力欄が空になる', async () => {
+  it('AC-UI-25: Enter で送られ、送れたら入力欄が空になる。送信ボタンはない', async () => {
     const { calls, fn } = recorder()
     render(h(Composer, { session: sess('s1', { state: 'waiting' }), onSend: fn }))
-    const input = screen.getByLabelText('指示')
-    assert.equal(screen.getByRole('button', { name: '送信' }).disabled, true, '空では送れない')
+    const input = screen.getByLabelText('メッセージ')
+    assert.equal(screen.queryByRole('button'), null)
     fireEvent.change(input, { target: { value: 'こんにちは' } })
-    fireEvent.click(screen.getByRole('button', { name: '送信' }))
+    fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => assert.equal(calls.length, 1))
     assert.deepEqual(calls[0], ['s1', 'こんにちは'])
     await waitFor(() => assert.equal(input.value, ''))
   })
 
-  it('Ctrl+Enter でも送れる。Enter だけでは送らない', async () => {
+  it('AC-UI-25: Shift+Enter では送らない（改行）。日本語の変換中の Enter でも送らない。空では送らない', async () => {
     const { calls, fn } = recorder()
     render(h(Composer, { session: sess('s1', { state: 'waiting' }), onSend: fn }))
-    const input = screen.getByLabelText('指示')
+    const input = screen.getByLabelText('メッセージ')
+    fireEvent.keyDown(input, { key: 'Enter' })
+    assert.equal(calls.length, 0, '空では送らない')
     fireEvent.change(input, { target: { value: 'やって' } })
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true })
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    assert.equal(calls.length, 0)
+  })
+
+  it('AC-002-4: 上限を超えた指示は送らず、理由が出る', () => {
+    const { calls, fn } = recorder()
+    render(h(Composer, { session: sess('s1', { state: 'waiting' }), onSend: fn }))
+    const input = screen.getByLabelText('メッセージ')
+    fireEvent.change(input, { target: { value: 'あ'.repeat(10_001) } })
     fireEvent.keyDown(input, { key: 'Enter' })
     assert.equal(calls.length, 0)
-    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true })
-    await waitFor(() => assert.equal(calls.length, 1))
+    assert.match(document.querySelector('[data-hint="invalid"]').textContent, /10000/)
   })
 
   it('送れなかったときは入力を残す', async () => {
-    const { fn } = recorder([{ ok: false, reason: 'x' }])
+    const { calls, fn } = recorder([{ ok: false, reason: 'x' }])
     render(h(Composer, { session: sess('s1', { state: 'waiting' }), onSend: fn }))
-    const input = screen.getByLabelText('指示')
+    const input = screen.getByLabelText('メッセージ')
     fireEvent.change(input, { target: { value: '残す' } })
-    fireEvent.click(screen.getByRole('button', { name: '送信' }))
-    await waitFor(() => assert.equal(screen.getByRole('button', { name: '送信' }).disabled, false))
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => assert.equal(calls.length, 1))
+    await waitFor(() => assert.equal(input.disabled, false))
     assert.equal(input.value, '残す')
+  })
+
+  it('AC-UI-26: 操作できないセッションの入力欄は無効で、送れない', () => {
+    const { calls, fn } = recorder()
+    render(h(Composer, { session: sess('s1', { controllable: false }), onSend: fn }))
+    const input = screen.getByLabelText('メッセージ')
+    assert.equal(input.disabled, true)
+    assert.equal(input.getAttribute('placeholder'), '閲覧のみ')
+    fireEvent.keyDown(input, { key: 'Enter' })
+    assert.equal(calls.length, 0)
   })
 
   it('保留中の指示の「取り消し」と、結果の「×」が呼ばれる', () => {
     const cancelled = []
     const dismissed = []
-    render(h(Instructions, {
-      sessionId: 's1', pending: [{ id: 'p1', preview: 'あとで' }], records: [{ id: 'r1', sessionId: 's1', status: 'confirmed', preview: '済み' }],
-      onCancel: (s, id) => cancelled.push([s, id]), onDismiss: (id) => dismissed.push(id),
-    }))
+    render(h('div', null,
+      h(PendingMessage, { sessionId: 's1', pending: { id: 'p1', preview: 'あとで' }, onCancel: (s, id) => cancelled.push([s, id]) }),
+      h(SentMessage, { record: { id: 'r1', sessionId: 's1', status: 'failed', preview: '済み' }, onDismiss: (id) => dismissed.push(id) })))
     fireEvent.click(screen.getByRole('button', { name: '取り消し' }))
     fireEvent.click(screen.getByRole('button', { name: '結果を閉じる' }))
     assert.deepEqual(cancelled, [['s1', 'p1']])
     assert.deepEqual(dismissed, ['r1'])
   })
+})
 
-  it('行の「指示を送る」で入力欄が開閉する', () => {
-    const { container } = render(h('ul', null, h(Row, { session: sess('s1', { state: 'waiting' }), elapsedMs: 1000 })))
-    assert.equal(container.querySelector('textarea'), null)
-    fireEvent.click(screen.getByRole('button', { name: '指示を送る' }))
-    assert.ok(container.querySelector('textarea'))
-    fireEvent.click(screen.getByRole('button', { name: '指示を送る' }))
-    assert.equal(container.querySelector('textarea'), null)
+describe('スクロール（AC-UI-23, 24）', () => {
+  // jsdom にはレイアウトがないので、スクロールの値を差し替えて、書き込みを記録する
+  const fakeScroll = (el, { scrollHeight = 2000, clientHeight = 500, scrollTop = 0 } = {}) => {
+    const log = { top: scrollTop, scrolledTo: [] }
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, get: () => scrollHeight })
+    Object.defineProperty(el, 'clientHeight', { configurable: true, get: () => clientHeight })
+    Object.defineProperty(el, 'scrollTop', { configurable: true, get: () => log.top, set: (v) => { log.top = v } })
+    el.scrollTo = (opts) => log.scrolledTo.push(opts)
+    return { log, set: (v) => { log.top = v } }
+  }
+  const props = (session, extra = {}) => ({ session, now: 10_000, instructions: new Map(), requestRecords: new Map(), onBack() {}, ...extra })
+
+  it('AC-UI-23: 新しい内容が増えたときは一番下へ。増えていない再描画（経過時間の更新など）では動かさない', () => {
+    const { container, rerender } = render(h(Detail, props(sess('s1', { state: 'working', requests: [] }))))
+    const el = container.querySelector('.detail')
+    const sc = fakeScroll(el)
+    sc.set(300) // 利用者が上を読んでいる
+    rerender(h(Detail, { ...props(sess('s1', { state: 'working', requests: [] })), now: 20_000 }))
+    assert.equal(sc.log.top, 300, '時間が進んだだけでは動かない')
+    rerender(h(Detail, props(sess('s1', { state: 'permission', requests: [permissionRequest()] }))))
+    assert.equal(sc.log.top, 2000, '許可要求が増えたので一番下へ')
   })
 
-  it('Group: 折りたたむと行が隠れ、件数の表示は残る', () => {
-    const group = { key: 'k', name: 'acct', counts: { permission: 1, question: 0, waiting: 0, working: 0, total: 1 }, sessions: [sess('s1')] }
-    const { container, rerender } = render(h(Group, { group, collapsed: false, now: 10_000 }))
-    assert.ok(container.querySelector('[data-session-id="s1"]'))
-    rerender(h(Group, { group, collapsed: true, now: 10_000 }))
-    assert.equal(container.querySelector('[data-session-id="s1"]'), null)
-    assert.ok(within(container).getByText('許可待ち 1'))
+  it('AC-UI-24: 一番下から離れているときだけ「一番下へ」が出て、押すと一番下へスクロールする', () => {
+    const { container } = render(h(Detail, props(sess('s1', { state: 'working' }))))
+    const el = container.querySelector('.detail')
+    const button = container.querySelector('.to-bottom')
+    assert.equal(button.hidden, true)
+    const sc = fakeScroll(el)
+    sc.set(100)
+    fireEvent.scroll(el)
+    assert.equal(button.hidden, false)
+    fireEvent.click(button)
+    assert.equal(sc.log.scrolledTo[0].top, 2000)
+    sc.set(1500)
+    fireEvent.scroll(el)
+    assert.equal(button.hidden, true)
   })
 })

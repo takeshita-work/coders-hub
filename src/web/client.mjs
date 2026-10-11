@@ -1,7 +1,7 @@
 // Hub との WebSocket クライアント。スナップショットの受信、差分の適用、切断時の自動再接続。
 // WebSocket の実装とタイマーは差し替えられる（テスト用）。
 import {
-  addRejected, addSubmitted, collectSummaries, dismissRecord, reconcileInstructions, reduceInstruction, reduceMessage,
+  addRejected, addSubmitted, collectKinds, collectSummaries, dismissRecord, reconcileInstructions, reduceInstruction, reduceMessage,
   reduceRequest, validateInstruction,
 } from './logic.mjs'
 
@@ -13,6 +13,7 @@ export const initialState = () => ({
   instructions: new Map(), // この画面から送った指示の記録（id -> { id, sessionId, status, reason?, preview? }）
   requestRecords: new Map(), // 閉じた許可要求・質問の結果（id -> { id, sessionId, status, reason?, summary? }）
   requestSummaries: new Map(), // 応答待ちだった要求の短い説明（結果の表示に使う。id -> 説明）
+  requestKinds: new Map(), // 応答待ちだった要求の種類（permission | question。結果の色分けに使う。id -> 種類）
 })
 
 export const createClient = ({
@@ -45,10 +46,13 @@ export const createClient = ({
       let message
       try { message = JSON.parse(event.data) } catch { return }
       const patch = { sessions: reduceMessage(state.sessions, message) }
-      if (message.type === 'instruction') patch.instructions = reduceInstruction(state.instructions, message)
+      if (message.type === 'instruction') patch.instructions = reduceInstruction(state.instructions, message, now())
       // 閉じる前の要求の説明を覚えておく（閉じたあとの session には、要求が残らない）
-      if (message.type === 'request') patch.requestRecords = reduceRequest(state.requestRecords, message, state.requestSummaries)
-      else patch.requestSummaries = collectSummaries(state.requestSummaries, patch.sessions)
+      if (message.type === 'request') patch.requestRecords = reduceRequest(state.requestRecords, message, state.requestSummaries, state.requestKinds, now())
+      else {
+        patch.requestSummaries = collectSummaries(state.requestSummaries, patch.sessions)
+        patch.requestKinds = collectKinds(state.requestKinds, patch.sessions)
+      }
       if (message.type === 'snapshot') {
         patch.ready = true
         if (typeof message.now === 'number') patch.offset = message.now - now()
@@ -83,7 +87,7 @@ export const createClient = ({
       const checked = validateInstruction(text)
       if (!checked.ok) return checked
       const reject = (reason) => {
-        update({ instructions: addRejected(state.instructions, { localId: `local-${++localSeq}`, sessionId, reason, preview: preview(text) }) })
+        update({ instructions: addRejected(state.instructions, { localId: `local-${++localSeq}`, sessionId, reason, preview: preview(text), at: now() }) })
         return { ok: false, reason }
       }
       let res
@@ -97,7 +101,7 @@ export const createClient = ({
         return reject(body.message ?? body.error ?? `送信に失敗しました（${res.status}）`)
       }
       const { id, status } = await res.json()
-      update({ instructions: addSubmitted(state.instructions, { id, sessionId, status, preview: preview(text) }) })
+      update({ instructions: addSubmitted(state.instructions, { id, sessionId, status, preview: preview(text), at: now() }) })
       return { ok: true }
     },
 

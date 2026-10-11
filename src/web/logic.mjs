@@ -1,12 +1,12 @@
-// 画面の表示ロジック（React に依存しない純粋な関数）。仕様: specs/30-features/001-session-list/spec.md
-//  - 並び順・グループ化・件数・経過時間・タイトル（AC-001-9, AC-008-*, AC-010-*）
+// 画面の表示ロジック（React に依存しない純粋な関数）。仕様: specs/30-features/006-dashboard-layout/spec.md（ADR 0015）
+//  - ツリー・並び・件数・経過時間・タイトル（AC-UI-4〜9, 11, 28）
 
 export const STATE_LABEL = { permission: '許可待ち', question: '質問待ち', waiting: '返答待ち', working: '作業中' }
-// 人の応答で止まっているものを上に: 許可待ち → 質問待ち → 返答待ち → 作業中
-const STATE_ORDER = { permission: 0, question: 1, waiting: 2, working: 3 }
+// 行と状態の行に出す札。返答待ちは何もない状態なので、札を出さない（ADR 0015）
+export const SHORT_LABEL = { permission: '許可', question: '質問', working: '作業' }
 
-// 要対応 = 許可待ち・質問待ち・返答待ち（作業中以外）
-export const isAttention = (session) => session.state !== 'working'
+// 要対応 = 許可待ち・質問待ち（返答待ちは含めない。ADR 0015）
+export const isAttention = (session) => session.state === 'permission' || session.state === 'question'
 
 // Hub からのメッセージを一覧（Map: sessionId -> session）に適用する。元の Map は変更しない
 export const reduceMessage = (sessions, message) => {
@@ -25,15 +25,6 @@ export const reduceMessage = (sessions, message) => {
       return sessions
   }
 }
-
-// 許可待ち → 質問待ち → 返答待ち → 作業中。同じ状態の中は、状態になった時刻が新しい順（AC-001-9）
-export const sortSessions = (sessions) =>
-  [...sessions].sort(
-    (a, b) =>
-      (STATE_ORDER[a.state] ?? 9) - (STATE_ORDER[b.state] ?? 9) ||
-      b.stateSince - a.stateSince ||
-      a.sessionId.localeCompare(b.sessionId),
-  )
 
 export const countStates = (sessions) => {
   const counts = { permission: 0, question: 0, waiting: 0, working: 0, total: 0 }
@@ -72,28 +63,63 @@ export const formatElapsed = (ms) => {
   return hours % 24 ? `${days}日${hours % 24}時間` : `${days}日`
 }
 
-// アカウントごとのグループ。filter: 'all' | 'attention'（AC-010-5）。
-// 件数（attention）は絞り込み前の全セッションから数える（折りたたみ時の表示用。AC-008-4）
-export const groupByAccount = (sessions, filter = 'all') => {
+// 起動時刻。Hub が持たない古い形式でも並べられるよう、状態の時刻で代用する
+const startedOf = (s) => s.startedAt ?? s.stateSince ?? 0
+
+// サイドバーのツリー: アカウント → プロジェクト → セッション（AC-UI-4〜9）。
+//  - アカウント: 起動が最も早いセッションを持つ順
+//  - プロジェクト: 名前順。dirSort: 'asc' | 'desc'
+//  - セッション: 起動順。sessSort: 'early'（早い順）| 'late'（遅い順）
+//  - onlyControl: 操作できるセッションだけ
+// 状態では並べ替えない（状態が変わっても位置が動かない。AC-UI-7）。件数は、表示するセッションから数える
+export const buildTree = (sessions, { onlyControl = false, dirSort = 'asc', sessSort = 'early' } = {}) => {
   const byAccount = new Map()
   for (const s of sessions) {
-    const key = s.account ?? ''
-    if (!byAccount.has(key)) byAccount.set(key, [])
-    byAccount.get(key).push(s)
+    if (onlyControl && !s.controllable) continue
+    const account = s.account ?? ''
+    if (!byAccount.has(account)) byAccount.set(account, new Map())
+    const dirs = byAccount.get(account)
+    const cwd = s.cwd ?? ''
+    if (!dirs.has(cwd)) dirs.set(cwd, [])
+    dirs.get(cwd).push(s)
   }
-  return [...byAccount.entries()]
-    .map(([key, all]) => {
-      const counts = countStates(all)
-      const visible = filter === 'attention' ? all.filter(isAttention) : all
-      return { key, name: accountName(key || null), counts, sessions: sortSessions(visible) }
-    })
-    .filter((g) => g.sessions.length > 0)
-    .sort((a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key))
+  const bySession = (a, b) =>
+    (sessSort === 'late' ? -1 : 1) * (startedOf(a) - startedOf(b)) || a.sessionId.localeCompare(b.sessionId)
+  const accounts = [...byAccount.entries()].map(([key, dirs]) => {
+    const projects = [...dirs.entries()]
+      .map(([cwd, list]) => ({
+        key: `d:${key}/${cwd}`, cwd, name: projectName(cwd || null), counts: countStates(list), sessions: [...list].sort(bySession),
+      }))
+      .sort((a, b) => (dirSort === 'desc' ? -1 : 1) * (a.name.localeCompare(b.name) || a.cwd.localeCompare(b.cwd)))
+    const all = projects.flatMap((p) => p.sessions)
+    return { key, nodeKey: `a:${key}`, name: accountName(key || null), counts: countStates(all), earliest: Math.min(...all.map(startedOf)), projects }
+  })
+  return accounts.sort((a, b) => a.earliest - b.earliest || a.name.localeCompare(b.name) || a.key.localeCompare(b.key))
 }
 
-// タブのタイトル: 要対応が 1 件以上なら件数を先頭に付ける（AC-010-4）
+// サイドバーの「許可」ボタンを出せる要求（AC-UI-17, 18）: 操作モードで、入力が 200 文字以下かつ省略されていない許可要求
+export const SIDEBAR_ALLOW_MAX = 200
+export const sidebarAllowRequest = (session) =>
+  session.controllable
+    ? (session.requests ?? []).find(
+      (r) => r.kind === 'permission' && parsePreview(r.inputPreview).omitted === 0 && previewLength(r.inputPreview) <= SIDEBAR_ALLOW_MAX,
+    ) ?? null
+    : null
+
+// 画面の状態（選択・表示・パネル・絞り込み・並び・折りたたみ）の更新。patch.toggle は、折りたたみのキーの切り替え
+export const applyUiPatch = (ui, patch) => {
+  const { toggle, ...rest } = patch
+  const next = { ...ui, ...rest }
+  if (toggle !== undefined) {
+    next.collapsed = new Set(ui.collapsed)
+    if (!next.collapsed.delete(toggle)) next.collapsed.add(toggle)
+  }
+  return next
+}
+
+// タブのタイトル: 要対応（許可待ち・質問待ち）が 1 件以上なら件数を先頭に付ける（AC-UI-28）
 export const titleFor = (counts) => {
-  const n = counts.permission + counts.question + counts.waiting
+  const n = counts.permission + counts.question
   return n > 0 ? `(${n}) Coders Hub` : 'Coders Hub'
 }
 
@@ -124,33 +150,29 @@ export const validateInstruction = (text) => {
   return { ok: true }
 }
 
-// 操作できないセッションで表示する理由（AC-002-5）
-export const NOT_CONTROLLABLE_REASON = '操作モードで起動していません'
-
-// セッションの状態に応じた、送信前の案内（作業中などは、返答待ちになってから渡される）
-export const holdNotice = (session) =>
-  session.state === 'waiting' ? null : `${STATE_LABEL[session.state] ?? session.state}のため、返答待ちになってから送られます`
+// 操作できないセッションの入力欄に表示する文言（AC-UI-26）
+export const VIEW_ONLY_LABEL = '閲覧のみ'
 
 // 送った指示の記録 Map（id -> { id, sessionId, status, reason?, preview? }）に、Hub のメッセージを適用する
-export const reduceInstruction = (records, message) => {
+export const reduceInstruction = (records, message, at = 0) => {
   if (message.type !== 'instruction') return records
   const prev = records.get(message.id)
-  const next = { ...prev, id: message.id, sessionId: message.sessionId, status: message.status }
+  const next = { at, ...prev, id: message.id, sessionId: message.sessionId, status: message.status }
   if (message.reason) next.reason = message.reason
   else delete next.reason
   return new Map(records).set(message.id, next)
 }
 
 // 送信の応答（202）を記録に反映する。WebSocket のほうが先に届いていたら、状態は上書きしない
-export const addSubmitted = (records, { id, sessionId, status, preview }) => {
+export const addSubmitted = (records, { id, sessionId, status, preview, at = 0 }) => {
   const prev = records.get(id)
   if (prev) return new Map(records).set(id, { ...prev, preview })
-  return new Map(records).set(id, { id, sessionId, status, preview })
+  return new Map(records).set(id, { id, sessionId, status, preview, at })
 }
 
 // 送れなかった指示（API のエラー）の記録。Hub を通っていないので、画面だけの ID を付ける
-export const addRejected = (records, { localId, sessionId, reason, preview }) =>
-  new Map(records).set(localId, { id: localId, sessionId, status: 'failed', reason, preview })
+export const addRejected = (records, { localId, sessionId, reason, preview, at = 0 }) =>
+  new Map(records).set(localId, { id: localId, sessionId, status: 'failed', reason, preview, at })
 
 export const dismissRecord = (records, id) => {
   const next = new Map(records)
@@ -232,6 +254,19 @@ export const summarizeRequest = (request) =>
     ? clip(`${request.toolName}${request.description ? `: ${request.description}` : ''}`, 60)
     : clip(`質問: ${request.questions?.[0]?.header || request.questions?.[0]?.question || ''}`, 60)
 
+// 結果の色分け（許可／質問）に使う種類。Hub の request メッセージには種類がないので、応答待ちだった要求から覚えておく
+export const collectKinds = (kinds, sessions) => {
+  let next = kinds
+  for (const s of sessions.values()) {
+    for (const r of s.requests ?? []) {
+      if (next.has(r.id)) continue
+      if (next === kinds) next = new Map(kinds)
+      next.set(r.id, r.kind)
+    }
+  }
+  return next
+}
+
 // セッションの一覧から、応答待ちの要求の説明を集める（閉じたあとの結果の表示に使う）。増やすだけで、減らさない
 export const collectSummaries = (summaries, sessions) => {
   let next = summaries
@@ -247,12 +282,14 @@ export const collectSummaries = (summaries, sessions) => {
 
 // 要求の結果の記録 Map（id -> { id, sessionId, status, reason?, summary? }）に、Hub のメッセージを適用する。
 // 応答待ち（open）は、セッションの requests から表示するので、記録しない
-export const reduceRequest = (records, message, summaries = new Map()) => {
+export const reduceRequest = (records, message, summaries = new Map(), kinds = new Map(), at = 0) => {
   if (message.type !== 'request' || message.status === 'open') return records
-  const next = { id: message.id, sessionId: message.sessionId, status: message.status }
+  const next = { id: message.id, sessionId: message.sessionId, status: message.status, at }
   if (message.reason) next.reason = message.reason
   const summary = summaries.get(message.id)
   if (summary) next.summary = summary
+  const kind = kinds.get(message.id)
+  if (kind) next.kind = kind
   return new Map(records).set(message.id, next)
 }
 

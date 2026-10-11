@@ -126,6 +126,26 @@ describe('createStatusMonitor（実ファイルの読み取り）', () => {
     assert.equal(store.get('s1').state, 'waiting')
   })
 
+  it('AC-UI-30: 状態ファイルの startedAt を、セッションの起動時刻にする（Hub の再起動後も同じ値に戻る）', async () => {
+    start('s1')
+    assert.equal(store.get('s1').startedAt, 10_000) // 初めて見た時刻
+    writeStatus(100, 's1', 'busy', clock + 1_000, { startedAt: 2_000 })
+    await monitor.tick()
+    assert.equal(store.get('s1').startedAt, 2_000)
+    // 再起動後（別のストアが同じファイルを読む）
+    const store2 = createStore({ now: () => clock + 60_000 })
+    store2.applyHookEvent({ event: 'Stop', account, input: { session_id: 's1' } })
+    await createStatusMonitor({ store: store2, home: root }).tick()
+    assert.equal(store2.get('s1').startedAt, 2_000)
+  })
+
+  it('startedAt が読めないファイルでは、初めて見た時刻のまま', async () => {
+    start('s1')
+    writeStatus(100, 's1', 'busy', clock + 1_000)
+    await monitor.tick()
+    assert.equal(store.get('s1').startedAt, 10_000)
+  })
+
   it('他のセッションの状態ファイルには影響されない', async () => {
     start('s1')
     writeStatus(100, 's1', 'busy', clock + 1_000)
