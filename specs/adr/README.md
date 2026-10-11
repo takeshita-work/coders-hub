@@ -29,3 +29,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0013 | 指示は Hub 本体で保留し、返答待ちになったときに 1 件ずつ渡す | Accepted |
 | 0014 | モデルからの質問（AskUserQuestion）への回答は、PermissionRequest フックで返す | Accepted |
 | 0015 | 画面を「サイドバー（ツリー）＋詳細」にし、許可・質問は会話の中で応答する | Accepted |
+| 0016 | 会話は、画面から要求されたときに会話ログから読み、Hub は保持しない | Accepted |
