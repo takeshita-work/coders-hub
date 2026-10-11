@@ -12,6 +12,7 @@ import { createStatusMonitor } from './status-monitor.mjs'
 import { createInstructions, InstructionError } from './instructions.mjs'
 import { createInstructionMonitor } from './instruction-monitor.mjs'
 import { createRequests, RequestError } from './requests.mjs'
+import { DEFAULT_LIMIT, MAX_LIMIT, locateTranscript, readConversation } from './conversation.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const MAX_BODY_BYTES = 1_000_000
@@ -318,6 +319,39 @@ export const createHub = ({
 
   const STATUS_OF_ERROR = { 'not-found': 404, 'not-controllable': 409, invalid: 400, 'too-long': 413, 'not-held': 409 }
 
+  // 会話の取得（機能 004、ADR 0016）。要求のたびに会話ログの必要な分だけを読んで返し、Hub は保持しない。
+  // 読み取りにも、書き込みと同じ保護を付ける（会話の本文は漏れやすい）
+  const handleConversation = async (req, res, sessionId) => {
+    if (!guardWrite(req)) return sendJson(res, 403, { error: 'forbidden' })
+    const session = store.get(sessionId)
+    if (!session) return sendJson(res, 404, { error: 'not-found', message: 'セッションが見つかりません' })
+    const query = new URL(req.url, 'http://localhost').searchParams
+    const intParam = (name, fallback, max) => {
+      const raw = query.get(name)
+      if (raw === null) return fallback
+      const n = Number(raw)
+      return Number.isInteger(n) && n >= 0 && n <= max ? n : NaN
+    }
+    const limit = intParam('limit', DEFAULT_LIMIT, MAX_LIMIT)
+    const before = intParam('before', null, Number.MAX_SAFE_INTEGER)
+    if (Number.isNaN(limit) || limit < 1 || Number.isNaN(before)) return sendJson(res, 400, { error: 'invalid', message: 'limit・before が不正です' })
+    const file = await locateTranscript({ sessionId, account: session.account, transcriptPath: store.transcriptOf(sessionId) })
+    if (!file) return sendJson(res, 404, { error: 'no-transcript', message: '会話の記録が見つかりません' })
+    let page
+    try {
+      page = await readConversation(file, { before, limit })
+    } catch {
+      return sendJson(res, 500, { error: 'unreadable', message: '会話を読み込めません' })
+    }
+    // 変更がなければ、本文を返さない（最新のページだけ）
+    if (before === null && req.headers['if-none-match'] === page.etag) {
+      res.writeHead(304, { ETag: page.etag, 'Cache-Control': 'no-store' })
+      return res.end()
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ETag: page.etag })
+    res.end(JSON.stringify({ messages: page.messages, cursor: page.cursor }))
+  }
+
   const handleApi = async (req, res) => {
     try {
       if (req.method !== 'GET' && req.method !== 'HEAD' && !guardWrite(req)) return sendJson(res, 403, { error: 'forbidden' })
@@ -339,6 +373,8 @@ export const createHub = ({
         requests.respond(decodeURIComponent(match[1]), decodeURIComponent(match[2]), body)
         return send(res, 204)
       }
+      match = /^\/api\/sessions\/([^/]+)\/conversation$/.exec(pathname)
+      if (match && req.method === 'GET') return await handleConversation(req, res, decodeURIComponent(match[1]))
       sendJson(res, 404, { error: 'not found' })
     } catch (e) {
       if (res.headersSent) return res.destroy()

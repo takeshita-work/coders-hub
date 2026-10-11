@@ -1,10 +1,11 @@
 // 画面の部品（表示のみ。状態は props で受け取る）。JSX は使わず createElement で書く（ビルドなしでテストできる）。
 // 仕様: specs/30-features/006-dashboard-layout/spec.md（ADR 0015）。見た目の基準は specs/20-design/screens/mockup/index.html
-import { createElement as h, useLayoutEffect, useRef, useState } from 'react'
+import { createElement as h, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  INSTRUCTION_LABEL, MAX_INSTRUCTION, PREVIEW_COLLAPSE_CHARS, REQUEST_LABEL, SHORT_LABEL, VIEW_ONLY_LABEL, accountName, buildAnswers,
-  buildTree, collapsePreview, emptyDraft, formatElapsed, formatPrompt, isAttention, isFinal, parsePreview, previewLength, projectName,
-  recordsFor, requestRecordsFor, setOther, shortId, sidebarAllowRequest, toggleOption, validateAnswers, validateInstruction,
+  CONVERSATION_POLL_MS, INSTRUCTION_LABEL, MAX_INSTRUCTION, PREVIEW_COLLAPSE_CHARS, REQUEST_LABEL, SHORT_LABEL, TOOL_RESULT_LABEL, VIEW_ONLY_LABEL,
+  accountName, applyLatest, buildAnswers, buildTree, collapsePreview, deliveredInstructionIds, emptyConversation, emptyDraft, formatClock,
+  formatElapsed, formatPrompt, isAttention, isFinal, parsePreview, prependOlder, previewLength, projectName, recordsFor, requestRecordsFor,
+  setOther, shortId, sidebarAllowRequest, toggleOption, validateAnswers, validateInstruction, withConversationError,
 } from './logic.mjs'
 
 // ---- 許可要求・質問（会話の中のカード。機能 003） ----
@@ -140,6 +141,74 @@ export const SentMessage = ({ record, onDismiss }) =>
     record.reason && h('div', { className: 'instruction-reason' }, record.reason),
   )
 
+// ---- 会話（機能 004）。会話ログから読んだ、利用者の発言・Claude の応答・ツールの使用・質問と答え ----
+
+const Time = ({ at }) => (formatClock(at) ? h('time', { className: 'msg-time' }, formatClock(at)) : null)
+
+// 利用者の発言と応答の本文は、文字として出す（HTML・Markdown を解釈しない。AC-007-6。React が文字として扱う）
+export const ConversationMessage = ({ message, running }) => {
+  if (message.role === 'tool') {
+    const label = message.tool.result ? TOOL_RESULT_LABEL[message.tool.result] : running ? '実行中' : '結果なし'
+    return h('div', { className: `tool-line${message.tool.result ? ` tool-${message.tool.result}` : ''}`, 'data-conversation': 'tool' },
+      h('span', { className: 'tool-name' }, message.tool.name), h('span', { className: 'tool-result' }, label), h(Time, { at: message.at }))
+  }
+  if (message.role === 'question') {
+    return h('div', { className: 'msg qa', 'data-conversation': 'question' },
+      h('small', null, h('span', { className: 'res-tag' }, '質問'), message.tool.result === 'rejected' && h('span', { className: 'tag-pend' }, '拒否'), h(Time, { at: message.at })),
+      message.answers.map((a, i) => h('div', { key: i, className: 'qa-item' },
+        h('div', { className: 'res-q' }, a.question), a.answer !== null && h('div', { className: 'res-a' }, a.answer))))
+  }
+  const user = message.role === 'user'
+  return h('div', { className: `msg${user ? ' user' : ''}`, 'data-conversation': message.role, 'data-instruction-id': message.instructionId ?? undefined },
+    h('small', null, user ? 'あなた' : 'Claude', message.source === 'dashboard' && h('span', { className: 'tag-src' }, 'ダッシュボードから'), h(Time, { at: message.at })),
+    message.text,
+    message.truncated && h('span', { className: 'truncated' }, '…（以下省略）'))
+}
+
+// 取得の状態: 会話ログから読んだ会話を、詳細を開いている間だけ、条件つきで繰り返し取得する（AC-007-10〜12）
+const useConversation = ({ sessionId, fetchConversation }) => {
+  const [conv, setConv] = useState(emptyConversation)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const etag = useRef(null)
+  etag.current = conv.etag
+
+  useEffect(() => {
+    if (!fetchConversation) return undefined
+    let stopped = false
+    let busy = false
+    const tick = async () => {
+      if (stopped || busy || (typeof document !== 'undefined' && document.hidden)) return
+      busy = true
+      try {
+        const result = await fetchConversation(sessionId, { etag: etag.current })
+        if (stopped) return
+        if (result.status === 'ok') setConv((prev) => applyLatest(prev, result))
+        else if (result.status === 'error') setConv((prev) => withConversationError(prev, result.code))
+        else setConv((prev) => (prev.error ? { ...prev, error: null } : prev))
+      } finally {
+        busy = false
+      }
+    }
+    tick()
+    const timer = setInterval(tick, CONVERSATION_POLL_MS)
+    return () => { stopped = true; clearInterval(timer) }
+  }, [sessionId, fetchConversation])
+
+  const loadOlder = useCallback(async () => {
+    if (!fetchConversation || loadingOlder || conv.cursor === null) return false
+    setLoadingOlder(true)
+    try {
+      const result = await fetchConversation(sessionId, { before: conv.cursor })
+      if (result.status === 'ok') { setConv((prev) => prependOlder(prev, result)); return true }
+      return false
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [sessionId, fetchConversation, loadingOlder, conv.cursor])
+
+  return { conv, loadingOlder, loadOlder }
+}
+
 // ---- 下部（入力欄と状態の行） ----
 
 // メッセージ入力欄（AC-UI-25, 26, 002-1, 002-4）。Enter で送信、Shift+Enter で改行。操作できないセッションでは無効にして「閲覧のみ」
@@ -186,12 +255,16 @@ export const StatusLine = ({ session, elapsedMs }) =>
 // 一番下から離れているとみなす距離（px）
 const AWAY_PX = 160
 
-export const Detail = ({ session, now, instructions, requestRecords, onBack, onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
+export const Detail = ({ session, now, instructions, requestRecords, fetchConversation, onBack, onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
   const scroller = useRef(null)
   const [away, setAway] = useState(false)
+  const awayRef = useRef(false)
+  const { conv, loadingOlder, loadOlder } = useConversation({ sessionId: session.sessionId, fetchConversation })
   const requests = session.requests ?? []
   const pending = session.pending ?? []
-  const sent = (instructions ? recordsFor(instructions, session.sessionId) : []).filter((r) => r.status !== 'held')
+  // ログに現れた指示は、「届きました」の記録を出さない（二重に出さない。AC-007-3）
+  const delivered = deliveredInstructionIds(conv.messages)
+  const sent = (instructions ? recordsFor(instructions, session.sessionId) : []).filter((r) => r.status !== 'held' && !delivered.has(r.id))
   const results = requestRecords ? requestRecordsFor(requestRecords, session.sessionId) : []
   // 結果の行と送った指示は、起きた順に並べる
   const events = [
@@ -199,15 +272,44 @@ export const Detail = ({ session, now, instructions, requestRecords, onBack, onS
     ...results.map((r) => ({ at: r.at ?? 0, node: h(ResultLine, { key: `r-${r.id}`, record: r, onDismiss: onDismissRequest }) })),
   ].sort((a, b) => a.at - b.at)
 
-  // 新しい内容（カード・結果・指示）が増えたときは一番下へ。開いたときも一番下へ。それ以外の再描画では動かさない（AC-UI-23）
-  const count = requests.length + events.length + pending.length
   const scrollToBottom = () => { if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight }
+  // 自分の操作や要求の出現（カード・結果・指示）が増えたときは一番下へ。開いたときも一番下へ（AC-UI-23）
+  const count = requests.length + events.length + pending.length
   useLayoutEffect(scrollToBottom, [count])
+  // 会話の新着は、一番下の近くにいるときだけ一番下へ。上を読んでいるときは動かさない。最初に読み込めたときは、一番下へ
+  const newest = conv.messages.at(-1)?.id
+  const seen = useRef({ loaded: false, newest: undefined })
+  useLayoutEffect(() => {
+    const first = !seen.current.loaded && conv.loaded
+    if (first || (seen.current.newest !== newest && !awayRef.current)) scrollToBottom()
+    seen.current = { loaded: seen.current.loaded || conv.loaded, newest }
+  }, [newest, conv.loaded])
+  // 「さらに表示」で前に足したときは、いま見ている位置が動かないよう、増えた高さの分だけ足す
+  const anchor = useRef(null)
+  const oldest = conv.messages[0]?.id
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (anchor.current && el) {
+      el.scrollTop = anchor.current.top + (el.scrollHeight - anchor.current.height)
+      anchor.current = null
+    }
+  }, [oldest])
+  const more = async () => {
+    const el = scroller.current
+    if (el) anchor.current = { top: el.scrollTop, height: el.scrollHeight }
+    const ok = await loadOlder()
+    if (!ok) anchor.current = null
+  }
   const onScroll = () => {
     const el = scroller.current
-    if (el) setAway(el.scrollHeight - el.scrollTop - el.clientHeight > AWAY_PX)
+    if (!el) return
+    const isAway = el.scrollHeight - el.scrollTop - el.clientHeight > AWAY_PX
+    awayRef.current = isAway
+    setAway(isAway)
   }
 
+  // 末尾のツールの行（あとに発言や応答がない）は、実行中として出す
+  const tailStart = conv.messages.findLastIndex((m) => m.role !== 'tool') + 1
   return h('div', { className: 'detail', ref: scroller, onScroll, 'data-session-id': session.sessionId },
     h('div', { className: 'd-top' },
       h('div', { className: 'float' },
@@ -220,6 +322,11 @@ export const Detail = ({ session, now, instructions, requestRecords, onBack, onS
     ),
     h('div', { className: 'd-body' },
       h('div', { className: 'talk' },
+        conv.cursor !== null && h('button', { type: 'button', className: 'btn more', disabled: loadingOlder, onClick: more }, loadingOlder ? '読み込んでいます…' : 'さらに表示'),
+        conv.error && (conv.error === 'no-transcript'
+          ? conv.messages.length === 0 && h('p', { className: 'conv-note', 'data-conversation-note': 'none' }, '会話の記録がまだありません')
+          : h('p', { className: 'conv-note conv-error', role: 'status', 'data-conversation-note': 'error' }, '会話を読み込めません')),
+        conv.messages.map((m, i) => h(ConversationMessage, { key: m.id, message: m, running: i >= tailStart })),
         requests.map((r) =>
           r.kind === 'permission'
             ? h(PermissionCard, { key: r.id, sessionId: session.sessionId, request: r, onRespond })
@@ -356,7 +463,7 @@ export const defaultUi = () => ({
 })
 
 // state: client.mjs の状態、now: 補正済みの現在時刻（ミリ秒）、ui: 画面の状態（defaultUi）、onUi: 画面の状態の変更
-export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
+export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, fetchConversation }) => {
   const all = [...state.sessions.values()]
   const selected = ui.selected ? state.sessions.get(ui.selected) ?? null : null
   // 選んでいたセッションが閉じたら、詳細は空にして、スマホでは一覧に戻す
@@ -370,7 +477,7 @@ export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDi
         selected
           ? h(Detail, {
             key: selected.sessionId, session: selected, now, instructions: state.instructions, requestRecords: state.requestRecords,
-            onBack: () => onUi?.({ view: 'list' }), onSend, onCancel, onDismiss, onRespond, onDismissRequest,
+            onBack: () => onUi?.({ view: 'list' }), fetchConversation, onSend, onCancel, onDismiss, onRespond, onDismissRequest,
           })
           : h('div', { className: 'empty' },
             h('div', null, h('p', null, h('b', null, 'セッションを選んでください')), h('p', null, `要対応: ${all.filter(isAttention).length} 件`)))),

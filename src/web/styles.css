@@ -217,3 +217,16 @@ button { cursor: pointer; }
   .actions .btn { min-height: 48px; flex: 1 1 40%; }
   .dock textarea.inst { font-size: 16px; } /* iOS の拡大を防ぐ */
 }
+
+/* 会話（機能 004）: 発言・応答・ツールの行・質問と答え。画面の外の分は描画を省く */
+.talk > .msg, .talk > .tool-line { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+.msg-time { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--muted); }
+.tag-src { padding: 0 6px; border-radius: 4px; font-size: 11px; background: var(--working-bg); color: var(--working); }
+.truncated { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.tool-line { display: flex; align-items: center; gap: 8px; justify-self: start; max-width: 100%; padding: 1px 10px; border-radius: 6px; font-size: 12px; color: var(--muted); background: var(--surface2); }
+.tool-name { font-family: ui-monospace, Consolas, monospace; color: var(--text); }
+.tool-rejected .tool-result, .tool-error .tool-result { color: var(--waiting); font-weight: 600; }
+.qa .qa-item + .qa-item { margin-top: 4px; }
+.conv-note { margin: 0; text-align: center; font-size: 12px; color: var(--muted); }
+.conv-error { color: var(--waiting); }
+.btn.more { justify-self: center; min-height: 28px; font-size: 12px; }

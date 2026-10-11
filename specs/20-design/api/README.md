@@ -1,6 +1,6 @@
 # API 定義
 
-- ステータス: Draft（一覧、指示の送信（機能 002）、許可・質問への応答（機能 003）、起動時刻 `startedAt`（機能 006）まで）
+- ステータス: Draft（一覧、指示の送信（機能 002）、許可・質問への応答（機能 003）、起動時刻 `startedAt`（機能 006）、会話の取得（機能 004）まで）
 - 実装: `src/hub/hub.mjs`。結合テスト: `tests/hub.test.mjs`、`tests/hub-instructions.test.mjs`、`tests/hub-requests.test.mjs`
 - 概要は `../architecture.md`、セキュリティは `../security.md`
 
@@ -80,6 +80,16 @@
 | `POST /api/sessions/:sessionId/requests/:requestId/response` | 許可要求・質問への応答。許可: `{ "behavior": "allow" \| "deny" }`。質問: `{ "answers": { "<質問文>": "<答え>" \| ["<答え>", …] } }`（配列はカンマ区切りにして渡す。答えは 1 つ 2,000 文字まで。空は不可） | 204。400（形が不正・答えが足りない）、403、404（セッション・要求なし）、409（すでに閉じている） |
 
 エラーの本文は `{ "error": "<コード>", "message": "<理由>" }`。
+
+### 会話の取得（機能 004、ADR 0016）
+`GET /api/sessions/:sessionId/conversation?limit=20&before=<位置>`
+
+- 保護は書き込みと同じ（`Host`・`Origin`・`X-Coders-Hub: 1`。通らなければ 403）。クライアントはセッション ID だけを渡す（パスは渡せない）。Hub は、要求のたびに会話ログ（JSONL）の必要な分だけを末尾から読んで返し、保持しない
+- `limit`: 1〜100（既定 20）。利用者の発言・Claude の応答・質問の数（ツールの行は数えず、その間に含める）。`before`: 前回の応答の `cursor`（そこより前を返す）。省略すると末尾から
+- 応答 200: `{ "messages": [...], "cursor": <位置> | null }`。ヘッダー `ETag`（ファイルの更新時刻とサイズ）、`Cache-Control: no-store`。`messages` は古い順。`cursor` は、さらに前を読むための位置（先頭まで読んだら `null`）
+- `If-None-Match` が一致すれば 304（本文なし。`before` がない最新のページのときだけ）
+- エラー: 403、404（`not-found`: セッションなし、`no-transcript`: 会話の記録がない）、400（`invalid`: `limit`・`before` が不正）、500（`unreadable`: 読めない）
+- メッセージ: `{ id, at, role: "user" | "assistant" | "tool" | "question", text?, truncated?, source?: "dashboard", instructionId?, tool?: { name, result: "ok" | "rejected" | "error" | null }, answers?: [{ question, answer }] }`。`text` は 4,000 文字まで（超えたら `truncated: true`）。`source: "dashboard"` は、ダッシュボードから送った指示（`instructionId` は指示の ID）。思考・ツールの入力と出力・サブエージェント・システムの記録は含めない
 
 ### WebSocket `/ws`
 `Origin` ヘッダーがあるときは、`Host` と同じものだけ受け付ける（別サイトのページからの接続を防ぐ）。Hub からブラウザへの一方向（ブラウザからのメッセージは使わない）。

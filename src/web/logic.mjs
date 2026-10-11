@@ -341,3 +341,56 @@ export const validateAnswers = (questions, draft) => {
 // Hub へ送る answers（質問文 → 答え）
 export const buildAnswers = (questions, draft) =>
   Object.fromEntries(questions.map((q, i) => [q.question, answerFor(q, draft[i])]))
+
+// ---- 会話の表示（機能 004） ----
+
+// 詳細を開いている間、会話を取得する間隔（AC-007-10: 3 秒以内に反映）
+export const CONVERSATION_POLL_MS = 2_000
+
+export const TOOL_RESULT_LABEL = { ok: '成功', rejected: '拒否', error: 'エラー' }
+
+export const emptyConversation = () => ({ messages: [], cursor: null, etag: null, loaded: false, error: null })
+
+// メッセージ ID は、会話ログの行の位置（と、同じ行の中の番号）から作られる: "<位置>" または "<位置>:<番号>"
+const idKey = (id) => {
+  const [offset, index = '0'] = String(id).split(':')
+  return Number(offset) * 1000 + Number(index)
+}
+
+// 最新のページ（先頭は取得ごとに同じ範囲）を反映する。最新ページの範囲より前に読み込んだ分は残す
+export const applyLatest = (conversation, page) => {
+  const first = page.messages[0]
+  const kept = first && conversation.messages.length > 0 && idKey(conversation.messages[0].id) < idKey(first.id)
+    ? conversation.messages.filter((m) => idKey(m.id) < idKey(first.id))
+    : []
+  const replaced = kept.length === 0
+  return {
+    messages: [...kept, ...page.messages],
+    // 古い分を読み込んでいるときは、その cursor を保つ。最新ページだけのときは、ページの cursor
+    cursor: replaced ? page.cursor : conversation.cursor,
+    etag: page.etag,
+    loaded: true,
+    error: null,
+  }
+}
+
+// 「さらに表示」の結果を、前に足す
+export const prependOlder = (conversation, page) => {
+  const first = conversation.messages[0]
+  const older = first ? page.messages.filter((m) => idKey(m.id) < idKey(first.id)) : page.messages
+  return { ...conversation, messages: [...older, ...conversation.messages], cursor: page.cursor }
+}
+
+// 取得の失敗。すでに読めている会話は残し、理由だけを付ける（直れば、次の取得で消える）
+export const withConversationError = (conversation, code) => ({ ...conversation, loaded: true, error: code })
+
+// 会話に現れたダッシュボードの指示の ID（画面の「届きました」の記録を、二重に出さないため）
+export const deliveredInstructionIds = (messages) =>
+  new Set(messages.filter((m) => m.source === 'dashboard' && m.instructionId).map((m) => m.instructionId))
+
+// 時刻（時:分）
+export const formatClock = (at) => {
+  if (typeof at !== 'number') return ''
+  const d = new Date(at)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}

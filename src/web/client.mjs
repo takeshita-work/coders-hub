@@ -132,6 +132,30 @@ export const createClient = ({
       }
     },
 
+    // 会話を取得する（機能 004、ADR 0016）。etag を渡すと、変更がなければ notModified。before で、さらに前を読む。
+    // 戻り値: { status: 'ok', messages, cursor, etag } | { status: 'notModified' } | { status: 'error', code }
+    // 本文は、画面のメモリにだけ持つ（ブラウザに保存しない。AC-007-14）
+    async fetchConversation(sessionId, { before = null, etag = null, limit = 20 } = {}) {
+      const query = new URLSearchParams({ limit: String(limit) })
+      if (before !== null) query.set('before', String(before))
+      try {
+        const res = await fetchImpl(`${apiBase}/api/sessions/${encodeURIComponent(sessionId)}/conversation?${query}`, {
+          method: 'GET',
+          cache: 'no-store',
+          headers: { 'X-Coders-Hub': '1', ...(etag && before === null ? { 'If-None-Match': etag } : {}) },
+        })
+        if (res.status === 304) return { status: 'notModified' }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          return { status: 'error', code: body.error ?? `http-${res.status}` }
+        }
+        const body = await res.json()
+        return { status: 'ok', messages: Array.isArray(body.messages) ? body.messages : [], cursor: body.cursor ?? null, etag: res.headers?.get?.('etag') ?? null }
+      } catch {
+        return { status: 'error', code: 'network' }
+      }
+    },
+
     // 要求の結果の表示を消す
     dismissRequest(id) {
       update({ requestRecords: dismissRecord(state.requestRecords, id) })
