@@ -2,7 +2,7 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createStore } from '../src/hub/sessions.mjs'
 
-const ACCOUNT = 'C:\\Users\\yuya\\.claude-a'
+const ACCOUNT = 'C:\\Users\\dev\\.claude-a'
 const hook = (event, extra = {}, session = 's1') => ({
   event,
   account: ACCOUNT,

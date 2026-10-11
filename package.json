@@ -2,6 +2,12 @@
   "name": "coders-hub",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/takeshita-work/coders-hub.git"
+  },
+  "homepage": "https://github.com/takeshita-work/coders-hub#readme",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -10,7 +16,9 @@
     "build": "node scripts/build-web.mjs",
     "start": "node src/hub/main.mjs",
     "test": "node --test",
-    "test:watch": "node --test --watch"
+    "test:watch": "node --test --watch",
+    "build:exe": "node scripts/build-exe.mjs",
+    "package": "node scripts/package-release.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
@@ -24,6 +32,7 @@
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "esbuild": "^0.28.2",
-    "jsdom": "^26.1.0"
+    "jsdom": "^26.1.0",
+    "postject": "^1.0.0-alpha.6"
   }
 }

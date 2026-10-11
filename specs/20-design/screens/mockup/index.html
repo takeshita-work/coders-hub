@@ -239,27 +239,27 @@ button { cursor: pointer; }
 // ago: 何分前か（startedAt = 起動、since = 現在の状態になった）
 const LONG_INPUT = '{ "command": "echo \'' + 'abcdefghij'.repeat(30).slice(0, 220) + '\n⋯ 8509 code points elided ⋯\n' + '0123456789'.repeat(14) + '\' > out.txt" }'
 const initialSessions = () => [
-  { id: 'deae164b', account: '.claude-takeshita.work', cwd: 'coders-hub', started: 660, since: 1, state: 'permission', control: true,
+  { id: 'deae164b', account: '.claude-main', cwd: 'coders-hub', started: 660, since: 1, state: 'permission', control: true,
     prompt: '別のディレクトリを以下にしたいです。そこに必要なファイルをコピーできますか？',
     request: { kind: 'permission', tool: 'Bash', desc: 'List files in current directory', input: '{ "command": "ls" }' } },
-  { id: '844cd1f9', account: '.claude-takeshita.work', cwd: 'coders-hub', started: 1100, since: 5, state: 'waiting', control: true,
+  { id: '844cd1f9', account: '.claude-main', cwd: 'coders-hub', started: 1100, since: 5, state: 'waiting', control: true,
     prompt: 'Bash で、spikes/sandbox/t10-12k.txt の中身を一字一句そのまま echo に入れて実行して' },
-  { id: '7c9e1a22', account: '.claude-takeshita.work', cwd: 'coders-hub', started: 95, since: 2, state: 'permission', control: true,
+  { id: '7c9e1a22', account: '.claude-main', cwd: 'coders-hub', started: 95, since: 2, state: 'permission', control: true,
     prompt: '12,000 文字のファイルの中身をそのまま出力して',
     request: { kind: 'permission', tool: 'Bash', desc: 'Echo the contents of t10-12k.txt verbatim', input: LONG_INPUT, elided: 8509 } },
-  { id: 'f12b36e7', account: '.claude-takeshita.work', cwd: 'test', started: 240, since: 3, state: 'question', control: true,
+  { id: 'f12b36e7', account: '.claude-main', cwd: 'test', started: 240, since: 3, state: 'question', control: true,
     prompt: 'AskUserQuestion ツールで、好きな色を 1 つ選ばせて。選択肢は 赤・青・緑',
     request: { kind: 'question', questions: [
       { q: '好きな色を 1 つ選んでください。', multi: false, options: [['赤', '情熱'], ['青', '落ち着き'], ['緑', '自然']] },
       { q: '好きな果物を選んでください（複数選択可）。', multi: true, options: [['りんご', ''], ['みかん', ''], ['ぶどう', '']] } ] } },
-  { id: 'a1b2c3d4', account: '.claude-takeshita.work', cwd: 'test', started: 120, since: 1, state: 'working', control: true, prompt: 'テストを全部実行して、失敗したものを直して' },
-  { id: 'eb0edae9', account: '.claude-takeshita.work', cwd: 'sandbox', started: 1180, since: 480, state: 'waiting', control: false, prompt: '' },
-  { id: '5d2f8e01', account: '.claude-soilook', cwd: 'soilook-api', started: 300, since: 30, state: 'waiting', control: true, prompt: 'OpenAPI の定義から型を生成するスクリプトを書いて' },
-  { id: '9a0b7c33', account: '.claude-soilook', cwd: 'soilook-api', started: 90, since: 3, state: 'working', control: false, prompt: 'マイグレーションを確認して' },
-  { id: '3e4f5a66', account: '.claude-soilook', cwd: 'soilook-web', started: 400, since: 8, state: 'permission', control: true,
+  { id: 'a1b2c3d4', account: '.claude-main', cwd: 'test', started: 120, since: 1, state: 'working', control: true, prompt: 'テストを全部実行して、失敗したものを直して' },
+  { id: 'eb0edae9', account: '.claude-main', cwd: 'sandbox', started: 1180, since: 480, state: 'waiting', control: false, prompt: '' },
+  { id: '5d2f8e01', account: '.claude-sub', cwd: 'sub-api', started: 300, since: 30, state: 'waiting', control: true, prompt: 'OpenAPI の定義から型を生成するスクリプトを書いて' },
+  { id: '9a0b7c33', account: '.claude-sub', cwd: 'sub-api', started: 90, since: 3, state: 'working', control: false, prompt: 'マイグレーションを確認して' },
+  { id: '3e4f5a66', account: '.claude-sub', cwd: 'sub-web', started: 400, since: 8, state: 'permission', control: true,
     prompt: 'ヘッダーのタイトルを直して',
-    request: { kind: 'permission', tool: 'Edit', desc: 'Edit src/components/Header.tsx', input: '{ "file_path": "src/components/Header.tsx",\n  "old_string": "<h1>Soilook</h1>", "new_string": "<h1>Soilook 管理</h1>" }' } },
-  { id: 'c1d2e3f4', account: '.claude-soilook', cwd: 'docs', started: 60, since: 12, state: 'waiting', control: true, prompt: 'README の手順を更新して' },
+    request: { kind: 'permission', tool: 'Edit', desc: 'Edit src/components/Header.tsx', input: '{ "file_path": "src/components/Header.tsx",\n  "old_string": "<h1>Sub</h1>", "new_string": "<h1>Sub 管理</h1>" }' } },
+  { id: 'c1d2e3f4', account: '.claude-sub', cwd: 'docs', started: 60, since: 12, state: 'waiting', control: true, prompt: 'README の手順を更新して' },
 ]
 const talk = (() => {
   const base = [
@@ -328,7 +328,7 @@ const chips = (ss) => {
 // ================= 描画: サイドバー =================
 // ダミー: 実装では、モデルはフック入力か会話ログ、使用率はステータスライン等から取る（経路は未検証）
 const MODEL = { deae164b: 'Opus 5.5', '844cd1f9': 'Opus 5.5', '7c9e1a22': 'Opus 5.5', f12b36e7: 'Sonnet 5.5', a1b2c3d4: 'Sonnet 5.5', eb0edae9: 'Haiku 5.5', '5d2f8e01': 'Sonnet 5.5', '9a0b7c33': 'Opus 5.5', '3e4f5a66': 'Fable 5.1', c1d2e3f4: 'Haiku 5.5' }
-const USAGE = { '.claude-takeshita.work': { h5: 32, d7: 61 }, '.claude-soilook': { h5: 84, d7: 47 } }
+const USAGE = { '.claude-main': { h5: 32, d7: 61 }, '.claude-sub': { h5: 84, d7: 47 } }
 const lv = (n) => (n >= 80 ? 'hi' : n >= 50 ? 'mid' : 'lo')
 const usageHtml = (name) => {
   const u = USAGE[name]

@@ -15,15 +15,18 @@ export const ASK_HOOK_TIMEOUT_SEC = 100
 
 // hookPath: hook.mjs の絶対パス。Windows のパスはバックスラッシュを / にして、シェルで壊れないようにする
 // askHookPath: ask-hook.mjs の絶対パス。渡すと、AskUserQuestion に答えるための同期フックを PermissionRequest に足す
-export const buildHooksConfig = (hookPath, askHookPath = null) => {
-  const nodeCommand = (file) => `node "${file.replaceAll('\\', '/')}"`
-  const entry = [{ hooks: [{ type: 'command', command: nodeCommand(hookPath), async: true }] }]
+// exePath: 配布版の exe の絶対パス。渡すと、`"<exe>" hook`・`"<exe>" ask-hook` を呼ぶ設定になる（ADR 0018）
+export const buildHooksConfig = (hookPath, askHookPath = null, { exePath = null } = {}) => {
+  const slash = (p) => p.replaceAll('\\', '/')
+  const nodeCommand = (file) => `node "${slash(file)}"`
+  const command = (file, sub) => (exePath ? `"${slash(exePath)}" ${sub}` : nodeCommand(file))
+  const entry = [{ hooks: [{ type: 'command', command: command(hookPath, 'hook'), async: true }] }]
   const hooks = Object.fromEntries(HOOK_EVENTS.map((event) => [event, [...entry]]))
-  if (askHookPath) {
+  if (askHookPath || exePath) {
     // 同期（async なし）。答えを標準出力で返すため
     hooks.PermissionRequest.push({
       matcher: 'AskUserQuestion',
-      hooks: [{ type: 'command', command: nodeCommand(askHookPath), timeout: ASK_HOOK_TIMEOUT_SEC }],
+      hooks: [{ type: 'command', command: command(askHookPath, 'ask-hook'), timeout: ASK_HOOK_TIMEOUT_SEC }],
     })
   }
   return { hooks }

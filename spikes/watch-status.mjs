@@ -11,7 +11,7 @@ const logFile = path.join(logDir, 'status.jsonl')
 
 const dirs = process.argv.length > 2
   ? process.argv.slice(2)
-  : ['C:\\Users\\yuya\\.claude-takeshita.work', 'C:\\Users\\yuya\\.claude-soilook']
+  : ['C:\\Users\\dev\\.claude-main', 'C:\\Users\\dev\\.claude-sub']
 
 const last = new Map() // ファイル -> 直近の内容（status の変化だけ記録する）
 const log = (entry) => {

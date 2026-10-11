@@ -178,7 +178,7 @@ describe('詳細での表示と更新（AC-007-1, 3, 8, 10〜12, 17）', () => {
   it('AC-007-1: 開くと、会話が時系列で出る', async () => {
     const { fn } = pageFetcher([ok([msg(1), { id: '2', role: 'assistant', text: '応答です', at: 1 }])])
     const { container } = render(detail({ fetchConversation: fn }))
-    await waitFor(() => assert.match(text(container.textContent), /発言 1/))
+    await waitFor(() => assert.match(text(container.textContent), /発言 1/), { timeout: 5000 })
     assert.match(container.textContent, /応答です/)
     assert.ok(container.querySelector('.talk').textContent.indexOf('発言 1') < container.querySelector('.talk').textContent.indexOf('応答です'))
   })
@@ -186,7 +186,7 @@ describe('詳細での表示と更新（AC-007-1, 3, 8, 10〜12, 17）', () => {
   it('AC-007-11: 2 回目の取得は ETag を渡し、変更なし（notModified）なら表示は変わらない', async () => {
     const { fn, calls } = pageFetcher([ok([msg(1)], null, 'W/"7"')])
     const { container } = render(detail({ fetchConversation: fn }))
-    await waitFor(() => assert.match(container.textContent, /発言 1/))
+    await waitFor(() => assert.match(container.textContent, /発言 1/), { timeout: 5000 })
     // 2 秒ごとの取得を待たずに、続きの取得を確かめる
     await act(async () => { await new Promise((r) => setTimeout(r, 2100)) })
     assert.equal(calls[0].etag, null)
@@ -202,7 +202,7 @@ describe('詳細での表示と更新（AC-007-1, 3, 8, 10〜12, 17）', () => {
   it('AC-007-8: 内容が画面に満たないとき（スクロールできない）は、前の分が自動で読み込まれ、先頭まで読むと止まる。ボタンはない', async () => {
     const { fn, calls } = pageFetcher([ok([msg(100)], 100), ok([msg(10), msg(50)], null)])
     const { container } = render(detail({ fetchConversation: fn }))
-    await waitFor(() => assert.match(container.textContent, /発言 10/))
+    await waitFor(() => assert.match(container.textContent, /発言 10(?!\d)/), { timeout: 5000 })
     assert.equal(calls[1].before, 100)
     assert.deepEqual([...container.querySelectorAll('[data-conversation="user"]')].map((e) => e.textContent.match(/発言 \d+/)[0]), ['発言 10', '発言 50', '発言 100'])
     assert.equal(screen.queryByRole('button', { name: 'さらに表示' }), null)
@@ -217,7 +217,7 @@ describe('詳細での表示と更新（AC-007-1, 3, 8, 10〜12, 17）', () => {
     ])
     const { fn } = pageFetcher([ok([msg(1, { source: 'dashboard', instructionId: 'abc', text: '重複する指示' })])])
     const { container } = render(detail({ fetchConversation: fn, instructions, session: sess({ pending: [{ id: 'p1', createdAt: 1, preview: 'あとで' }] }) }))
-    await waitFor(() => assert.match(container.textContent, /ダッシュボードから/))
+    await waitFor(() => assert.match(container.textContent, /ダッシュボードから/), { timeout: 5000 })
     assert.equal(container.querySelectorAll('[data-instruction-status="confirmed"]').length, 0)
     assert.equal(container.querySelectorAll('[data-instruction-status="failed"]').length, 1)
     assert.equal(container.querySelectorAll('[data-instruction-status="held"]').length, 1)
@@ -226,7 +226,7 @@ describe('詳細での表示と更新（AC-007-1, 3, 8, 10〜12, 17）', () => {
   it('AC-007-17: 読み込めないときは「会話を読み込めません」。ほかの表示（入力欄・状態）は出たまま', async () => {
     const { fn } = pageFetcher([{ status: 'error', code: 'unreadable' }])
     const { container } = render(detail({ fetchConversation: fn }))
-    await waitFor(() => assert.ok(container.querySelector('[data-conversation-note="error"]')))
+    await waitFor(() => assert.ok(container.querySelector('[data-conversation-note="error"]')), { timeout: 5000 })
     assert.match(container.textContent, /会話を読み込めません/)
     assert.ok(container.querySelector('textarea'))
     assert.ok(container.querySelector('.status-line'))
@@ -235,7 +235,7 @@ describe('詳細での表示と更新（AC-007-1, 3, 8, 10〜12, 17）', () => {
   it('会話の記録がまだない（no-transcript）ときは、エラーではなく、記録がない旨を出す', async () => {
     const { fn } = pageFetcher([{ status: 'error', code: 'no-transcript' }])
     const { container } = render(detail({ fetchConversation: fn }))
-    await waitFor(() => assert.ok(container.querySelector('[data-conversation-note="none"]')))
+    await waitFor(() => assert.ok(container.querySelector('[data-conversation-note="none"]')), { timeout: 5000 })
     assert.doesNotMatch(container.textContent, /読み込めません/)
   })
 })
@@ -262,7 +262,7 @@ describe('スクロール（機能 006 の AC-UI-23 を会話にも）', () => {
     const origHeight = sc.height
     fireEvent.scroll(el) // 上の端の近く（300px 以内）
     sc.height = origHeight + 600 // 前の分が足されると、高さが 600 増える
-    await waitFor(() => assert.match(container.textContent, /発言 10/))
+    await waitFor(() => assert.match(container.textContent, /発言 10(?!\d)/), { timeout: 5000 })
     assert.equal(calls[1].before, 100)
     assert.equal(sc.top, 700, '100 + 増えた高さ 600')
   })
@@ -286,18 +286,18 @@ describe('スクロール（機能 006 の AC-UI-23 を会話にも）', () => {
       { status: 'ok', messages: [msg(1), msg(2), msg(3)], cursor: null, etag: 'c' },
     ]
     const { container } = render(h(Detail, props(async () => pages.shift() ?? { status: 'notModified' })))
-    await waitFor(() => assert.match(container.textContent, /発言 1/))
+    await waitFor(() => assert.match(container.textContent, /発言 1/), { timeout: 5000 })
     const el = container.querySelector('.detail')
     const sc = fakeScroll(el)
     sc.top = 100
     fireEvent.scroll(el) // 上を読んでいる（一番下から離れている）
     await act(async () => { await new Promise((r) => setTimeout(r, 2100)) })
-    await waitFor(() => assert.match(container.textContent, /発言 2/))
+    await waitFor(() => assert.match(container.textContent, /発言 2/), { timeout: 5000 })
     assert.equal(sc.top, 100, '上を読んでいるときは動かさない')
     sc.top = 1500
     fireEvent.scroll(el) // 一番下の近く
     await act(async () => { await new Promise((r) => setTimeout(r, 2100)) })
-    await waitFor(() => assert.match(container.textContent, /発言 3/))
+    await waitFor(() => assert.match(container.textContent, /発言 3/), { timeout: 5000 })
     assert.equal(sc.top, 2000, '一番下の近くにいるときは、一番下へ')
   })
 })

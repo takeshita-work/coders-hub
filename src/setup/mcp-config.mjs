@@ -6,11 +6,11 @@ export const SERVER_NAME = 'coders-hub'
 export const CHANNEL_FLAG = `--dangerously-load-development-channels server:${SERVER_NAME}`
 
 // channelPath: channel.mjs の絶対パス。Windows のパスはバックスラッシュを / にする
-export const buildMcpConfig = (channelPath, { channel = false } = {}) => ({
+// exePath: 配布版の exe の絶対パス。渡すと、`<exe> channel [--channel]` を起動する設定になる（ADR 0018）
+export const buildMcpConfig = (channelPath, { channel = false, exePath = null } = {}) => ({
   mcpServers: {
-    [SERVER_NAME]: {
-      command: 'node',
-      args: [channelPath.replaceAll('\\', '/'), ...(channel ? ['--channel'] : [])],
-    },
+    [SERVER_NAME]: exePath
+      ? { command: exePath.replaceAll('\\', '/'), args: ['channel', ...(channel ? ['--channel'] : [])] }
+      : { command: 'node', args: [channelPath.replaceAll('\\', '/'), ...(channel ? ['--channel'] : [])] },
   },
 })

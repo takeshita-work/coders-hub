@@ -5,12 +5,12 @@ import { buildMcpConfig, CHANNEL_FLAG, SERVER_NAME } from '../src/setup/mcp-conf
 import { buildHooksConfig, HOOK_EVENTS } from '../src/setup/hooks-config.mjs'
 
 describe('buildMcpConfig', () => {
-  const p = 'D:\\organization\\works\\#tools\\coders-hub\\src\\channel\\channel.mjs'
+  const p = 'D:\\work\\#tools\\coders-hub\\src\\channel\\channel.mjs'
 
   it('一覧だけのモードは、引数なし。パスの区切りは / にそろえる', () => {
     const entry = buildMcpConfig(p).mcpServers[SERVER_NAME]
     assert.equal(entry.command, 'node')
-    assert.deepEqual(entry.args, ['D:/organization/works/#tools/coders-hub/src/channel/channel.mjs'])
+    assert.deepEqual(entry.args, ['D:/work/#tools/coders-hub/src/channel/channel.mjs'])
   })
 
   it('操作モードは、--channel が付く。サーバーの名前は同じ（開発用フラグの server: と一致する）', () => {

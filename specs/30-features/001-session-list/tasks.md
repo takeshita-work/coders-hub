@@ -38,7 +38,7 @@
     - 影響: 拒否だけでなく、**Esc による中断**でも `Stop` が来ないため、`working`／`permission` のまま残る
   - [x] `Notification` の 6 秒の遅延は仕様どおり: 「`permission_prompt` は、ユーザーが約 6 秒間入力していない時点で発生」（キー入力のたびに延期）。即時に検知するには `PermissionRequest` を使う、と公式に案内されている
   - 補足: `PermissionRequest` はサンドボックス化されたコマンドのネットワークリクエストでは実行されない。その場合は `permission_prompt` を使う（v2.1.246 以降）。`SessionEnd` の入力フィールド名は、実機のログでは `reason`
-  - [ ] 別のアカウント（`CLAUDE_CONFIG_DIR`）で同じディレクトリを起動し、複数アカウントが区別できることを確認する（今回のログは `.claude-takeshita.work` のみ）。**後回し**。フェーズ 4 の結合時に実機で確認する（T6 で再確認）
+  - [ ] 別のアカウント（`CLAUDE_CONFIG_DIR`）で同じディレクトリを起動し、複数アカウントが区別できることを確認する（今回のログは `.claude-main` のみ）。**後回し**。フェーズ 4 の結合時に実機で確認する（T6 で再確認）
 - [x] T0-11 ★ Esc 中断の記録: 作業中（長めの処理）に Esc で中断し、会話ログ（JSONL）にどの記録が残るか、何秒後に書かれるかを確認する。結果で ADR 0007 を Accepted にする
   - 結果: 許可ダイアログで Esc を押したとき、保留中の全ツール呼び出しに `User rejected tool use`（`is_error`）が並び、同じ時刻に `[Request interrupted by user]` が記録された。フックは `SessionEnd` まで何も来なかった。ADR 0007 を Accepted にした
   - 未確認: 許可ダイアログのない通常の作業中の Esc（今回のテストは `permissions.ask` の設定により、すべてダイアログ付きだった）。T6-2 の実機確認で確かめる

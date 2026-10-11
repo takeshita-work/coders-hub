@@ -9,7 +9,7 @@ import { WebSocket } from 'ws'
 import { createHub } from '../src/hub/hub.mjs'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const ACCOUNT = 'C:\\Users\\yuya\\.claude-a'
+const ACCOUNT = 'C:\\Users\\dev\\.claude-a'
 
 let hub, ports, dir
 const config = { host: '127.0.0.1', internalPort: 0, uiPort: 0, pollTimeoutMs: 300, expireMs: 400 }

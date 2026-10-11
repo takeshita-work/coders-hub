@@ -17,7 +17,7 @@
   - 有力: 会話ログ（JSONL、各フックの入力の `transcript_path`）の末尾を、`permission`／`working` のセッションだけ定期的に確認する。実機のログでは、拒否の 1.9 秒後（`PermissionRequest` の 39:14.9 に対し 39:16.68）に `tool_result`（`User rejected tool use`、`is_error`）と `[Request interrupted by user for tool use]` が記録されていた。Esc 中断の記録は未確認
   - 懸念: JSONL は内部フォーマット（NFR-008）。補助用途に限り、読めなくなっても状態が戻らないだけ（現状と同じ）にとどめる
 - [x] 強制終了で `SessionEnd` が発火しないこと → Ctrl+C での終了では来なかった（1 回のみ。`async` のフックが終了で打ち切られた可能性もある）。`SessionEnd` に頼らず、`/poll` の切断で検知する（ウィンドウを閉じる・`taskkill /F` でも、すぐ消えることを実機で確認。T6-2）
-- [x] 複数アカウントの区別: フックの `CLAUDE_CONFIG_DIR` と、チャネルサーバーの `CLAUDE_CONFIG_DIR` で区別できる。`.claude-takeshita.work` と `.claude-soilook` が別グループで同時に表示されることを実機で確認（T6-2）
+- [x] 複数アカウントの区別: フックの `CLAUDE_CONFIG_DIR` と、チャネルサーバーの `CLAUDE_CONFIG_DIR` で区別できる。`.claude-main` と `.claude-sub` が別グループで同時に表示されることを実機で確認（T6-2）
 - [x] 許可後の復帰の合図: `PostToolUse` を使う。`PreToolUse` は許可プロンプトより前に発火する（T0-3）
 - [x] Windows で `claude` を Ctrl+C で終了したとき、チャネルサーバーの stdin が閉じ、`/poll` の切断を本体が約 22ms で検知できた（NFR-006、T0-6）。ウィンドウを閉じる・`taskkill /F` も、実機で確認済み（T6-2）
 - [x] Windows でフックの `node` 起動の遅延: 起動から記録まで 20〜46ms。3 秒以内（NFR-003）に収まる（T0-7）。HTTP 送信を含む遅延は T4-1 で再計測
@@ -64,9 +64,9 @@
 
 ## 配布（機能 007）で確認すること
 - [x] Node 22.23 の SEA で、`ws`・MCP SDK を束ねた exe が動く（約 88 MB）。メインは CommonJS のみで、最上位の `await` の `async` 化が要る（ADR 0018、2026-10-11）
-- [ ] SEA のアセット（画面のファイル）の取り出しと配信
-- [ ] exe を、フックとして起動したときの起動時間（フックの時間 NFR-003 に収まるか）
-- [ ] ライセンスの決定。公開リポジトリには、ライセンスが要る
+- [x] SEA のアセット（画面のファイル）の取り出しと配信: できた（マニフェストで名前の一覧を持つ）
+- [x] exe を、フックとして起動したときの起動時間: 中央値 約 120ms（node 版は約 82ms）。NFR-003 に収まる
+- [x] ライセンス: MIT に決定（2026-10-11）
 - [ ] 公開前の確認（履歴に、個人のパス・アカウント名・メールアドレスなどが含まれていないか）
 - [ ] 署名なしの exe の、SmartScreen・ウイルス対策ソフトの扱い（誤検知の確認）
 

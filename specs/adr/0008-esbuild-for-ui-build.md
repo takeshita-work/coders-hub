@@ -5,7 +5,7 @@
 
 ## 背景
 画面は React で作る（`specs/20-design/architecture.md`）。当初は React + Vite とし、テストに Vitest を想定していた。
-しかし、リポジトリのパスに `#`（`D:\organization\works\#tools\#web-app\coders-hub`）が含まれており、実測で次の結果だった。
+しかし、リポジトリのパスに `#`（`D:\work\#tools\#web-app\coders-hub`）が含まれており、実測で次の結果だった。
 
 | 道具 | `#` を含むパスで |
 |---|---|

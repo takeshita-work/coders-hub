@@ -8,7 +8,7 @@ import { createHub } from '../src/hub/hub.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const ACCOUNT = 'C:\\Users\\yuya\\.claude-e2e'
+const ACCOUNT = 'C:\\Users\\dev\\.claude-e2e'
 
 let hub, env
 before(async () => {
@@ -135,7 +135,7 @@ describe('channel.mjs --channel（操作モード）', () => {
       assert.ok(await until(() => hub.store.get('m1')?.controllable), '操作モードとして登録されない')
       hub.store.applyHookEvent({ event: 'Stop', input: { session_id: 'm1' } })
 
-      const text = '1 行目 "引用符" C:\Users\yuya\n2 行目 <tag> & `x` $HOME 日本語'
+      const text = '1 行目 "引用符" C:\Users\dev\n2 行目 <tag> & `x` $HOME 日本語'
       const seen = []
       const unsubscribe = hub.instructions.subscribe((c) => c.sessionId === 'm1' && seen.push(c.status))
       const { id } = hub.instructions.submit('m1', text)

@@ -7,7 +7,7 @@
 ## 1. 準備（初回のみ）
 
 ```powershell
-cd "D:\organization\works\#tools\#web-app\coders-hub"
+cd "D:\work\#tools\#web-app\coders-hub"
 npm install
 npm run build     # 画面をビルドする（dist/web/）。画面を変えたら再実行する
 npm test          # 任意。全件が通ること
@@ -40,7 +40,7 @@ node scripts/print-setup.mjs
 ### 3-2. チャネルサーバー
 ```powershell
 $env:CLAUDE_CONFIG_DIR = "C:\Users\you\.claude-work"
-claude mcp add --scope user coders-hub -- node "D:/organization/works/#tools/#web-app/coders-hub/src/channel/channel.mjs"
+claude mcp add --scope user coders-hub -- node "D:/work/#tools/#web-app/coders-hub/src/channel/channel.mjs"
 ```
 （実際のコマンドは手順 2 の表示をそのまま使う。未確認: `--scope user` がアカウントごとの設定に保存されること）
 

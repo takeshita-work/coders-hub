@@ -44,8 +44,8 @@
 - [ ] 検証用のファイルがある: `spikes/sandbox/t10-12k.txt`（12,000 文字）
 - [ ] 操作モードで起動する（**リポジトリのルートで**）
   ```powershell
-  cd "D:\organization\works\#tools\#web-app\coders-hub"
-  C:\Users\yuya\.local\bin\claude_scripts\claude_start.ps1 takeshita.work --dangerously-load-development-channels server:coders-hub
+  cd "D:\work\#tools\#web-app\coders-hub"
+  <起動用スクリプト> <アカウント名> --dangerously-load-development-channels server:coders-hub
   ```
   警告画面が出たら承認する。`/mcp` で `coders-hub` が connected であること
 - [ ] 権限モードを、確認が出る通常のモードにする（auto などだと許可画面が出ない）

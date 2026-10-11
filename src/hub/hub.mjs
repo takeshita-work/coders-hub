@@ -96,6 +96,8 @@ export const createHub = ({
   config = loadConfig(),
   store = createStore({ expireMs: config.expireMs }),
   staticDir = path.resolve(here, '../../dist/web'),
+  // 画面のファイルの配信元。{ get(相対パス) => Buffer | null }。配布版は、exe に埋め込んだもの。なければ staticDir のフォルダを読む
+  staticAssets = null,
   sweepIntervalMs = 5000,
   monitorIntervalMs = 1000,
   monitor = createTranscriptMonitor({ store, intervalMs: monitorIntervalMs }),
@@ -274,6 +276,20 @@ export const createHub = ({
       rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html'
     } catch {
       return send(res, 400)
+    }
+    if (staticAssets) {
+      // 埋め込んだファイルだけを返す（リストにないパスは、フォルダの外を含めて 404）
+      const body = staticAssets.get(rel)
+      if (!body) {
+        if (rel === 'index.html') return send(res, 200, FALLBACK_PAGE, CONTENT_TYPES['.html'])
+        return send(res, 404, 'not found')
+      }
+      res.writeHead(200, {
+        'Content-Type': CONTENT_TYPES[path.extname(rel).toLowerCase()] ?? 'application/octet-stream',
+        'Content-Length': body.length,
+        'Cache-Control': 'no-store',
+      })
+      return req.method === 'HEAD' ? res.end() : res.end(body)
     }
     const root = path.resolve(staticDir)
     const file = path.resolve(root, rel)

@@ -6,7 +6,7 @@ import {
 } from '../src/web/logic.mjs'
 
 const s = (id, state, since, extra = {}) => ({
-  sessionId: id, account: 'C:\\Users\\yuya\\.claude-a', cwd: 'D:\\work\\proj', state, stateSince: since, lastPrompt: null, channelAlive: true, ...extra,
+  sessionId: id, account: 'C:\\Users\\dev\\.claude-a', cwd: 'D:\\work\\proj', state, stateSince: since, lastPrompt: null, channelAlive: true, ...extra,
 })
 
 describe('reduceMessage', () => {
@@ -185,7 +185,7 @@ describe('表示用の整形', () => {
     assert.equal(projectName('D:\\a\\#b\\coders-hub'), 'coders-hub')
     assert.equal(projectName('/home/u/proj/'), 'proj')
     assert.equal(projectName(null), '（不明）')
-    assert.equal(accountName('C:\\Users\\yuya\\.claude-takeshita.work'), '.claude-takeshita.work')
+    assert.equal(accountName('C:\\Users\\dev\\.claude-main'), '.claude-main')
     assert.equal(shortId('d96bc4ce-88c8-4500-b5f4-24d54418c340'), 'd96bc4ce')
   })
 

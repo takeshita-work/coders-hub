@@ -20,7 +20,7 @@
 ```json
 {
   "event": "UserPromptSubmit",
-  "account": "C:\\Users\\yuya\\.claude-takeshita.work",
+  "account": "C:\\Users\\dev\\.claude-main",
   "input": { "session_id": "...", "cwd": "...", "transcript_path": "...", "prompt": "..." }
 }
 ```

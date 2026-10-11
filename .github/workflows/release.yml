@@ -1,0 +1,94 @@
+# リリース（機能 007、ADR 0018）: タグ v<バージョン> を push すると、テスト・exe の作成・zip 化を行い、GitHub のリリースに添付する。
+#   使い方: package.json の version を上げてコミットし、git tag v<バージョン> && git push origin v<バージョン>
+# リリースは、ドラフトで作り、すべて添付できてから公開する（失敗したときに、中途半端なリリースを残さない）。
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: タグと package.json の version が一致するか
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::タグ（$GITHUB_REF_NAME）と package.json の version（$version）が一致しません"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: テスト
+        run: npm test
+
+      - name: exe を作る
+        run: npm run build:exe
+
+      - name: 配布物（zip）を作る
+        run: npm run package
+
+      - name: exe の動作確認（Hub を起動して、画面と /health を確かめる）
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path dist/exe/coders-hub.exe).Path
+          & $exe version
+          $env:CODERS_HUB_INTERNAL_PORT = '38765'
+          $env:CODERS_HUB_UI_PORT = '38766'
+          $hub = Start-Process -FilePath $exe -ArgumentList 'hub' -PassThru -WindowStyle Hidden
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:38765/health' -TimeoutSec 2
+                if ($health -eq 'ok') { $ok = $true; break }
+              } catch { }
+            }
+            if (-not $ok) { throw 'Hub が起動しませんでした（/health）' }
+            $page = Invoke-WebRequest -Uri 'http://127.0.0.1:38766/' -UseBasicParsing
+            if ($page.Content -notmatch 'Coders Hub') { throw '画面（/）が埋め込みの index.html ではありません' }
+            $js = Invoke-WebRequest -Uri 'http://127.0.0.1:38766/app.js' -UseBasicParsing
+            if ($js.StatusCode -ne 200) { throw 'app.js を配信できません' }
+            Write-Host 'exe の動作確認: OK'
+          } finally {
+            Stop-Process -Id $hub.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: リリースを作って、添付して、公開する
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sums="$(cat dist/release/SHA256SUMS.txt)"
+          cat > release-notes.md <<NOTES
+          ## Coders Hub ${GITHUB_REF_NAME}
+
+          Windows x64 用です。zip を展開して、\`coders-hub.exe\` を使います（Node.js は要りません）。手順は、zip の \`README.txt\` と、[README](https://github.com/${GITHUB_REPOSITORY}#readme) にあります。
+
+          - 署名していないため、SmartScreen が警告することがあります。「詳細情報」→「実行」で開けます。
+          - SHA-256（zip）:
+
+          \`\`\`
+          ${sums}
+          \`\`\`
+          NOTES
+          gh release create "$GITHUB_REF_NAME" dist/release/*.zip dist/release/SHA256SUMS.txt \
+            --draft --verify-tag --title "$GITHUB_REF_NAME" --notes-file release-notes.md --generate-notes
+          gh release edit "$GITHUB_REF_NAME" --draft=false

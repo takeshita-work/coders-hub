@@ -2,7 +2,7 @@
   "mcpServers": {
     "coders-hub-probe": {
       "command": "node",
-      "args": ["D:/organization/works/#tools/#web-app/coders-hub/spikes/probe-channel.mjs"]
+      "args": ["D:/work/#tools/#web-app/coders-hub/spikes/probe-channel.mjs"]
     }
   }
 }

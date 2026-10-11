@@ -18,7 +18,7 @@
 
 ### 配布物
 - GitHub のリリースに、`coders-hub-<バージョン>-win-x64.zip` が添付される
-- zip の中身: `coders-hub.exe`、`README.txt`（日本語。使い方・設定・SmartScreen の開き方・更新・アンインストール）、`LICENSE`、`SHA256SUMS.txt`
+- zip の中身: `coders-hub.exe`、`README.txt`（日本語。使い方・設定・SmartScreen の開き方・更新・アンインストール）、`LICENSE`（MIT）、`THIRD_PARTY_NOTICES.txt`（exe に含まれる Node.js と npm パッケージのライセンス表示）、`SHA256SUMS.txt`
 - リリースには、変更点（リリースノート）と、zip の SHA-256 が書かれる
 - 対象は Windows x64（NFR-001）
 
@@ -54,7 +54,7 @@ AC の番号は、要件 REQ-011 に対応する。
 
 ### 配布物
 - AC-011-1: タグの push で、GitHub のリリースに、zip・SHA-256 が添付される。リリースに変更点がある
-- AC-011-2: zip に、`coders-hub.exe`・`README.txt`・`LICENSE`・`SHA256SUMS.txt` が含まれる
+- AC-011-2: zip に、`coders-hub.exe`・`README.txt`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` が含まれる。`THIRD_PARTY_NOTICES.txt` に、Node.js と、束ねた npm パッケージ（画面と exe の両方）のライセンス文が入る
 - AC-011-3: `SHA256SUMS.txt` の値が、zip の中の exe の SHA-256 と一致する
 - AC-011-4: `package.json` の `version` とタグが一致しないと、リリースが作られない。テストが失敗しても、作られない
 
@@ -79,8 +79,10 @@ AC の番号は、要件 REQ-011 に対応する。
 - インストーラー（MSI・自動起動の登録・スタートメニューの登録）。必要になったら別の機能にする
 - 外部公開・認証（REQ-006、機能 005）
 
+## 決定済み
+- ライセンスは MIT（2026-10-11）。著作権者は `takeshita-work`
+
 ## 未決事項
-- ライセンス（公開リポジトリには、ライセンスが要る）
 - 公開前の秘密情報・個人情報の確認の範囲（履歴を含む）
 - 既定のポート（ポートの変更を、コードの既定にするか、環境変数にするか）
 - SmartScreen・ウイルス対策ソフトの誤検知が出たときの対応方針（報告先・ハッシュの公開）

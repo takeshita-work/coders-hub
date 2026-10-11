@@ -1,5 +1,6 @@
 // hook.mjs / channel.mjs から Hub 本体の内部 API を呼ぶための共通部品。
 import { spawn } from 'node:child_process'
+import { isSea } from 'node:sea'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,11 +29,12 @@ export const isHubUp = async (config, timeoutMs = 500) => {
 
 // Hub を別プロセスとして起動する（claude が終わっても残る）。多重に起動しても、
 // ポートを確保できなかった側は main.mjs が何もせず終了するので、1 つだけ残る（NFR-005）
-export const startHubProcess = (spawnFn = spawn, env = process.env) => {
+// 配布版（exe）では、自分と同じ exe を `hub` で起動する。開発時は、node で src/hub/main.mjs を起動する（ADR 0018）
+export const startHubProcess = (spawnFn = spawn, env = process.env, { sea = isSea(), execPath = process.execPath } = {}) => {
   // 起動元のセッション固有の環境変数は引き継がない
   const clean = Object.fromEntries(Object.entries(env).filter(([k]) => !k.startsWith('CLAUDE')))
-  const child = spawnFn(process.execPath, [HUB_ENTRY], {
-    cwd: ROOT,
+  const child = spawnFn(execPath, sea ? ['hub'] : [HUB_ENTRY], {
+    cwd: sea ? path.dirname(execPath) : ROOT,
     env: clean,
     detached: true,
     stdio: 'ignore',

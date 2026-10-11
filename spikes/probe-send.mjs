@@ -23,7 +23,7 @@ if (kind === 'plain') {
   await send('順序の確認 2/3: 「2」とだけ答えてください')
   await send('順序の確認 3/3: 「3」とだけ答えてください')
 } else if (kind === 'special') {
-  const body = '1 行目 "二重引用符" \'単引用符\' バックスラッシュ C:\\Users\\yuya\n2 行目 <tag attr="x"> & </channel> 日本語\n3 行目 { "json": [1, 2] } `backtick` $HOME %PATH%'
+  const body = '1 行目 "二重引用符" \'単引用符\' バックスラッシュ C:\\Users\\dev\n2 行目 <tag attr="x"> & </channel> 日本語\n3 行目 { "json": [1, 2] } `backtick` $HOME %PATH%'
   await send('次のテキストを、1 文字も変えずにコードブロックでそのまま書き出してください。\n-----\n' + body + '\n-----')
 } else if (kind === 'long') {
   const filler = 'あいうえお'.repeat(1000) // 5,000 文字

@@ -7,7 +7,7 @@ import path from 'node:path'
 import { createStore } from '../src/hub/sessions.mjs'
 import { createStatusMonitor, sessionsDirOf } from '../src/hub/status-monitor.mjs'
 
-const ACCOUNT = 'C:\\Users\\yuya\\.claude-a'
+const ACCOUNT = 'C:\\Users\\dev\\.claude-a'
 const hook = (event, extra = {}, session = 's1') => ({
   event, account: ACCOUNT, input: { session_id: session, cwd: 'D:\\proj', transcript_path: 'D:\\t.jsonl', ...extra },
 })

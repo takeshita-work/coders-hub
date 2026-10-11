@@ -11,7 +11,7 @@ import { App } from '../src/web/components.mjs'
 const N = 30
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const BS = String.fromCharCode(92)
-const account = (i) => ['C:', 'Users', 'yuya', `.claude-acc${i % 3}`].join(BS)
+const account = (i) => ['C:', 'Users', 'dev', `.claude-acc${i % 3}`].join(BS)
 
 let hub, ports, ws, sessions, messages
 before(async () => {

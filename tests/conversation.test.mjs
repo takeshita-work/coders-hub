@@ -220,9 +220,9 @@ describe('会話ログの場所（AC-007-15, 16）', () => {
   const id = '8db71eb1-b06c-44b2-995b-9129e7f202c4'
 
   it('AC-007-15: transcript_path は、<sessionId>.jsonl で、親の親が projects のときだけ使える', () => {
-    assert.equal(isTranscriptPath(id, `C:\\Users\\yuya\\.claude-a\\projects\\D--proj\\${id}.jsonl`), true)
+    assert.equal(isTranscriptPath(id, `C:\\Users\\dev\\.claude-a\\projects\\D--proj\\${id}.jsonl`), true)
     assert.equal(isTranscriptPath(id, `/home/u/.claude/projects/p/${id}.jsonl`), true)
-    for (const bad of [`C:\\Users\\yuya\\secret.txt`, `C:\\Users\\yuya\\.claude\\projects\\p\\other.jsonl`, `C:\\x\\${id}.jsonl`, `C:\\a\\notprojects\\p\\${id}.jsonl`, null, undefined, 5]) {
+    for (const bad of [`C:\\Users\\dev\\secret.txt`, `C:\\Users\\dev\\.claude\\projects\\p\\other.jsonl`, `C:\\x\\${id}.jsonl`, `C:\\a\\notprojects\\p\\${id}.jsonl`, null, undefined, 5]) {
       assert.equal(isTranscriptPath(id, bad), false, String(bad))
     }
     assert.equal(isTranscriptPath('../etc', `C:\\p\\projects\\x\\../etc.jsonl`), false, 'セッション ID に、パスの文字は使えない')
