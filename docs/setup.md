@@ -46,6 +46,8 @@ claude mcp add --scope user coders-hub -- node "D:/organization/works/#tools/#we
 
 プロジェクト単位で試すだけなら、プロジェクト直下の `.mcp.json` に書いて、`settings.local.json` の `enabledMcpjsonServers` で有効化してもよい（T0-5 の実験で確認した方法）。
 
+プロジェクトの `.mcp.json` には、**`--channel` を付けない**（一覧だけのモード）。付けると、何も付けずに起動した `claude` も Hub に「操作モード」と伝わり、実際には通知が捨てられるのに画面は「操作できる」と表示してしまう（開発用フラグがないと、`claude` はチャネルの通知を捨てる。ADR 0011）。操作モードは、起動用スクリプトが `--channel` 入りの設定と `--dangerously-load-development-channels server:coders-hub` を渡したときだけにする（下の「3. 操作モード」）。
+
 ## 4. 使い方
 
 1. `claude` を普通に起動する（開発用フラグも承認画面も要らない）。

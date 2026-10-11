@@ -24,5 +24,5 @@
 ## フェーズ 4: テストと確認
 - [x] T4-1 既存の画面のテスト（`web-components`・`web-logic`・`web-requests`・`web-instructions`・`web-interactions`）を新しい構成に合わせて更新し、AC-UI-* を参照する
 - [x] T4-2 負荷テスト（30 セッション）の描画時間を確認する（AC-UI-16）
-- [ ] T4-3 実機の通し確認（`acceptance.md` を作る）。PC とスマホ幅（ブラウザの開発者ツールまたは実機）
-- [ ] T4-4 機能 001・002・003 の spec と acceptance の対応表を更新する
+- [x] T4-3 実機の通し確認（`acceptance.md` を作る）。PC とスマホ幅（ブラウザの開発者ツールまたは実機）
+- [x] T4-4 機能 001・002・003 の spec と acceptance の対応表を更新する

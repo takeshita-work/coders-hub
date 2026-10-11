@@ -74,10 +74,12 @@ describe('セッションの行（AC-UI-11〜15）', () => {
     for (const st of ['permission', 'question', 'waiting', 'working']) assert.match(rows, new RegExp(`class="sess st-${st}`))
   })
 
-  it('AC-UI-13: 操作できないセッションは nc クラスで、札の代わりに「閲覧のみ」', () => {
-    const rows = render(stateOf([s('v', 'working', 1, { controllable: false }), s('c', 'working', 1)]))
-    assert.match(rows, /class="sess st-working nc"/)
-    assert.equal((rows.match(/class="tag-nc">閲覧のみ</g) ?? []).length, 1)
+  it('AC-UI-13: 操作できないセッションは nc クラスで、右端に「閲覧のみ」。状態の札も出る', () => {
+    const rows = render(stateOf([s('v', 'permission', 1, { controllable: false }), s('c', 'working', 1), s('w', 'waiting', 1, { controllable: false })]))
+    assert.match(rows, /class="sess st-permission nc"/)
+    assert.equal((rows.match(/class="tag-nc">閲覧のみ</g) ?? []).length, 2)
+    assert.match(rows, /class="chip chip-permission">許可<\/span><span class="tag-nc">閲覧のみ</, '許可待ちの札は隠れない（札、閲覧のみの順）')
+    assert.match(rows, /class="chip chip-working">作業</)
   })
 
   it('AC-UI-15: 経過時間は now から計算される（now が進めば表示が変わる）', () => {

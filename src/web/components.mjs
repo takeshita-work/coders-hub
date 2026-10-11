@@ -273,9 +273,8 @@ export const SessionRow = ({ session, elapsedMs, selected, onSelect, onRespond }
         h('span', { className: 'sess-id', title: session.sessionId }, shortId(session.sessionId)),
         h('span', { className: 'sess-time' }, formatElapsed(elapsedMs)),
         h('span', { className: 'sess-tags' },
-          session.controllable
-            ? SHORT_LABEL[session.state] && h('span', { className: `chip chip-${session.state}` }, SHORT_LABEL[session.state])
-            : h('span', { className: 'tag-nc' }, VIEW_ONLY_LABEL)),
+          SHORT_LABEL[session.state] && h('span', { className: `chip chip-${session.state}` }, SHORT_LABEL[session.state]),
+          !session.controllable && h('span', { className: 'tag-nc' }, VIEW_ONLY_LABEL)),
         h('span', { className: 'sess-prompt', title: session.lastPrompt ?? '' }, prompt ?? '（発言なし）'),
       ),
       allow && h('button', {
