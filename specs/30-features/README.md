@@ -9,7 +9,8 @@
 ├── 002-send-instruction/    # REQ-002, 003, 005
 ├── 003-permission-relay/    # REQ-004, 005
 ├── 004-transcript-view/     # REQ-007
-└── 005-remote-access/       # REQ-006
+├── 005-remote-access/       # REQ-006
+└── 006-dashboard-layout/    # 画面構成（サイドバー＋詳細、スマホ。ADR 0015）
 ```
 
 上記は案。MVP の `001-session-list` から、着手するときにフォルダを作る。

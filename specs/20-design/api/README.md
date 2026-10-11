@@ -1,6 +1,6 @@
 # API 定義
 
-- ステータス: Draft（一覧、指示の送信（機能 002）、許可・質問への応答（機能 003）まで）
+- ステータス: Draft（一覧、指示の送信（機能 002）、許可・質問への応答（機能 003）、起動時刻 `startedAt`（機能 006）まで）
 - 実装: `src/hub/hub.mjs`。結合テスト: `tests/hub.test.mjs`、`tests/hub-instructions.test.mjs`、`tests/hub-requests.test.mjs`
 - 概要は `../architecture.md`、セキュリティは `../security.md`
 
@@ -108,6 +108,7 @@
 | `cwd` | 作業ディレクトリ（不明なら `null`） |
 | `state` | `working` / `waiting` / `permission` / `question` |
 | `stateSince` | 現在の状態になった時刻（ミリ秒） |
+| `startedAt` | セッションの起動時刻（ミリ秒）。`claude` の状態ファイル（`sessions/<pid>.json`）の `startedAt`。読めないときは、Hub が初めて見た時刻（機能 006、ADR 0015）。サイドバーの起動順の並びに使う |
 | `lastPrompt` | 最後のプロンプト（なければ `null`） |
 | `channelAlive` | チャネルサーバーが接続しているか |
 | `controllable` | 操作モードのチャネルサーバーが接続している（指示を送れる） |
