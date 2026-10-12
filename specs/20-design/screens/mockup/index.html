@@ -36,12 +36,12 @@
 /* ---- 全体: ページ自体はスクロールさせず、サイドバーと詳細の中だけスクロールする ---- */
 * { box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; }
-body { margin: 0; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif; }
+body { margin: 0; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif; }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
-.mock-bar { flex: none; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 6px 12px; background: var(--accent); color: var(--bg); font-size: 12px; }
-.mock-bar button { background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 6px; padding: 1px 8px; font-size: 12px; }
+.mock-bar { flex: none; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 6px 12px; background: var(--accent); color: var(--bg); font-size: 14px; }
+.mock-bar button { background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 6px; padding: 1px 8px; font-size: 14px; }
 
 .app { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr; }
 
@@ -50,36 +50,68 @@ button { cursor: pointer; }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
 .btn.btn-allow, .btn.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
 .btn-deny { border-color: var(--muted); color: var(--text); font-weight: 600; }
-.chip { padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; text-align: center; }
+.chip { padding: 0 7px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap; text-align: center; }
 .chip-permission { background: var(--permission-bg); color: var(--permission); }
 .chip-question { background: var(--question-bg); color: var(--question); }
 .chip-working { background: var(--working-bg); color: var(--working); }
 .badge { color: #fff; min-width: 20px; padding: 0 7px; }
 .badge-permission { background: var(--permission-solid); }
 .badge-question { background: var(--question-solid); }
-.hint { font-size: 12px; color: var(--waiting); }
+.hint { font-size: 14px; color: var(--waiting); }
 
 /* ---- サイドバー ---- */
 .app > .side { display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: var(--side-bg); border-right: 1px solid var(--border); }
 .side-head { padding: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
 .head-row { display: flex; align-items: center; gap: 8px; height: calc(var(--head-h) - 1px); padding: 0 10px 0 12px; }
-.head-row h1 { margin: 0; flex: 1; font-size: 16px; }
-.menu-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; line-height: 0; font-size: 13px; color: var(--muted); border: 1px solid var(--border); background: var(--surface); border-radius: 8px; }
+.head-row h1 { margin: 0; flex: 1; font-size: 18px; }
+.menu-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; line-height: 0; font-size: 15px; color: var(--muted); border: 1px solid var(--border); background: var(--surface); border-radius: 8px; }
 .menu-btn[aria-expanded="true"] { background: var(--accent); color: var(--bg); }
 .menu-btn .dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--working); }
 
-/* フィルター・ソートのパネル */
-.panel { margin: 0 10px 8px; padding: 2px 10px 6px; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
+/* フィルター・ソート・メニューのパネル */
+.panel { margin: 0 10px 8px; padding: 2px 10px 6px; font-size: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
 .panel-sec + .panel-sec { border-top: 1px solid var(--border); margin-top: 6px; }
+.panel-val { color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
 .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0; }
 .switch { position: relative; flex: none; width: 34px; height: 18px; padding: 0; border: 0; border-radius: 999px; background: var(--border); transition: background .12s; }
 .switch .knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .12s; }
 .switch[aria-checked="true"] { background: var(--working); }
 .switch[aria-checked="true"] .knob { transform: translateX(16px); }
-.sort-btn { min-width: 58px; padding: 2px 8px; font-size: 12px; font-weight: 600; text-align: center; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; }
+.sort-btn { min-width: 58px; padding: 2px 8px; font-size: 14px; font-weight: 600; text-align: center; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; }
 .sort-btn:hover { background: var(--bg); }
-.quit-btn { padding: 2px 8px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; color: var(--text); }
+.quit-btn { padding: 2px 8px; font-size: 14px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; color: var(--text); }
 .quit-btn:hover { background: var(--bg); }
+/* 確認のモーダル（画面の中央。背景を暗くする）。外側のクリック・Esc で閉じる */
+.modal-back { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(8, 12, 20, .5); }
+.modal { width: min(380px, 100%); padding: 18px 18px 14px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
+.modal h2 { margin: 0 0 16px; font-size: 18px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-actions button { min-height: 38px; padding: 6px 18px; font-size: 15px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; color: var(--text); }
+.modal-actions .danger { border-color: transparent; background: var(--usage-hi); color: #fff; }
+.modal-actions button:focus-visible { outline: 2px solid var(--working); outline-offset: 2px; }
+/* 通知（メニュー）: 音量・ミュート・画面の点滅 */
+select { font: inherit; color: inherit; }
+select.sort-btn { padding: 2px 6px; min-width: 0; }
+/* フォーカス: ブラウザの既定の太い枠をやめ、細く薄い枠にする（キーボードで操作しているときも、場所が分かる程度） */
+select.sort-btn:focus, select.sort-btn:focus-visible { outline: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); outline-offset: 0; }
+.vol { display: inline-flex; align-items: center; gap: 8px; }
+.vol input[type="range"] { width: 96px; accent-color: var(--accent); }
+.vol input[type="range"]:disabled { opacity: .4; }
+.vol-num { min-width: 2.2em; text-align: right; font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+.sort-btn.mute-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; min-width: 0; padding: 3px 0; line-height: 0; }
+.mute-btn[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+/* 画面の点滅: 縁が、ぱっと付いて、ぱっと消える（なめらかに変えない）。0.67 秒ごとの切り替えで、2 秒間に 3 回（1 秒に 3 回を超えない）。
+   メニューの「画面の点滅」が ON なら、OS の「動きを減らす」設定にかかわらず、点滅する（ご自身の選択を優先する）。OFF にすれば、点滅しない */
+#flash { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+#flash.on { animation: edge-blink 2s step-end 1; }
+@keyframes edge-blink {
+  0%      { box-shadow: inset 0 0 0 8px var(--flash, var(--working)); }
+  16.67%  { box-shadow: none; }
+  33.33%  { box-shadow: inset 0 0 0 8px var(--flash, var(--working)); }
+  50%     { box-shadow: none; }
+  66.67%  { box-shadow: inset 0 0 0 8px var(--flash, var(--working)); }
+  83.33%, 100% { box-shadow: none; }
+}
 .quit-note { margin: 2px 0 6px; line-height: 1.5; color: var(--muted); }
 .quit-actions { display: flex; gap: 6px; justify-content: flex-end; padding-bottom: 2px; }
 
@@ -95,13 +127,13 @@ button { cursor: pointer; }
 .caret { flex: none; width: 14px; color: var(--muted); transition: transform .12s; }
 .collapsed > .node-head .caret { transform: rotate(-90deg); }
 .collapsed > ul { display: none; }
-.node-total { font-size: 12px; color: var(--muted); }
+.node-total { font-size: 14px; color: var(--muted); }
 .node-chips { margin-left: auto; display: flex; gap: 4px; }
 
 /* アカウントの帯: サイドバーの左右の端まで。2 行目に使用率（5h / 7d） */
 .node-head.band { flex-wrap: wrap; width: calc(100% + 16px); margin: 0 -8px; padding: 7px 8px; border-radius: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--band-bg); }
-.acc-name { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acc-usage { order: 10; flex-basis: 100%; display: flex; gap: 10px; padding-left: 16px; font-size: 11px; font-weight: 400; color: var(--muted); }
+.acc-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-usage { order: 10; flex-basis: 100%; display: flex; gap: 10px; padding-left: 16px; font-size: 13px; font-weight: 400; color: var(--muted); }
 .acc-usage b { font-weight: 700; }
 .acc-usage .u-lo { color: var(--text); }
 .acc-usage .u-mid { color: var(--usage-mid); }
@@ -126,14 +158,14 @@ button { cursor: pointer; }
 .sess-btn.sel { background: var(--sel); }
 .sess-box .sess-btn:hover { background: var(--surface2); }
 .sess.nc .sess-btn:hover { background: transparent; }
-.sess-id { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--muted); }
-.sess-model { justify-self: start; font-size: 11px; color: var(--muted); white-space: nowrap; }
-.sess-time { justify-self: start; font-size: 12px; color: var(--muted); }
+.sess-id { font-family: ui-monospace, Consolas, monospace; font-size: 14px; color: var(--muted); }
+.sess-model { justify-self: start; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.sess-time { justify-self: start; font-size: 14px; color: var(--muted); }
 .sess-tags { display: flex; align-items: center; gap: 4px; justify-self: start; }
 .sess.nc .sess-tags { justify-self: stretch; } /* 札は左、「閲覧のみ」は右端 */
-.tag-nc { margin-left: auto; padding: 0 5px; font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }
-.sess-prompt { grid-column: 1 / -1; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sess-allow { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 0 9px; font-size: 11px; }
+.tag-nc { margin-left: auto; padding: 0 5px; font-size: 13px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }
+.sess-prompt { grid-column: 1 / -1; font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sess-allow { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 0 9px; font-size: 13px; }
 .sess-box > .sess-allow { min-height: 28px; }
 
 /* ---- 詳細（メイン） ---- */
@@ -147,14 +179,14 @@ button { cursor: pointer; }
 .back { display: none; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--working); }
 .back:hover { background: var(--surface2); }
 .d-head { display: flex; align-items: center; gap: 8px; flex: none; }
-.d-head h2 { margin: 0; font-size: 20px; line-height: 1.2; }
-.d-meta1 { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-head h2 { margin: 0; font-size: 24px; line-height: 1.2; }
+.d-meta1 { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 会話 */
 .detail .d-body { flex: none; padding: 0 max(16px, calc((100% - 860px) / 2)) 8px; }
 .card { margin-top: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .detail .d-body > .card:first-child { margin-top: 0; }
-.card h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: .02em; color: var(--muted); }
+.card h3 { margin: 0 0 8px; font-size: 15px; letter-spacing: .02em; color: var(--muted); }
 .talk { display: grid; gap: 8px; }
 .talk > .card { margin-top: 4px; }
 .card.c-permission { background: var(--permission-bg); }
@@ -165,10 +197,48 @@ button { cursor: pointer; }
 .msg small { display: block; margin-bottom: 2px; color: var(--muted); }
 .msg.user { background: var(--working-bg); justify-self: end; }
 .msg.is-pending { opacity: .85; border: 1px dashed var(--border); }
-.msg .cancel { display: block; margin-top: 6px; min-height: 26px; padding: 0 10px; font-size: 12px; }
-.tag-pend, .tag-done { margin-left: 6px; padding: 0 6px; border-radius: 4px; font-size: 11px; }
+.msg .cancel { display: block; margin-top: 6px; min-height: 26px; padding: 0 10px; font-size: 14px; }
+.tag-pend, .tag-done { margin-left: 6px; padding: 0 6px; border-radius: 4px; font-size: 13px; }
 .tag-pend { background: var(--waiting-bg); color: var(--waiting); }
 .tag-done { background: var(--surface2); color: var(--muted); }
+
+/* ツールの使用: 閉じた 1 行（ツール名・要点・結果・時刻）。クリックで開くと、実行したコマンド・ファイル名の全文が見える（出力は出さない） */
+.tool-line { justify-self: start; min-width: 0; max-width: 100%; border-radius: 6px; font-size: 14px; color: var(--muted); background: var(--surface2); }
+.tool-line[open] { justify-self: stretch; }
+.tool-line > summary { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 1px 10px; list-style: none; cursor: pointer; }
+.tool-line > summary::-webkit-details-marker { display: none; }
+.tool-line > .tl-row { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 1px 10px; }
+.tool-line > .tl-row::before { content: ''; flex: none; width: 5px; margin-right: 2px; }
+.tool-line > summary::before { content: ''; flex: none; width: 5px; height: 5px; margin-right: 2px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .12s; }
+.tool-line[open] > summary::before { transform: rotate(45deg); }
+.tool-line > summary:hover { color: var(--text); }
+.tool-line > summary:focus-visible { outline: 2px solid var(--working); outline-offset: 1px; border-radius: 6px; }
+.tool-name { flex: none; font-family: ui-monospace, Consolas, monospace; color: var(--text); }
+.tool-arg { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, Consolas, monospace; }
+.tool-result { flex: none; }
+.tool-error .tool-result, .tool-rejected .tool-result { color: var(--waiting); font-weight: 600; }
+.tool-running .tool-result { color: var(--working); font-weight: 600; }
+.tool-line .msg-time { flex: none; margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); }
+.tool-detail { padding: 0 10px 6px 29px; }
+.tool-detail .pre { margin: 0; padding: 0; max-height: 12em; border: 0; background: transparent; }
+/* 連続したツールの行は、グループにまとめる。閉じた 1 行（件数・ツール名・結果の内訳・時刻）。開くと、個別の行が並び、各行も開閉できる */
+.tool-group { justify-self: start; min-width: 0; max-width: 100%; border-radius: 6px; font-size: 14px; color: var(--muted); background: var(--surface2); }
+.tool-group[open] { justify-self: stretch; }
+.tool-group > summary { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 1px 10px; list-style: none; cursor: pointer; }
+.tool-group > summary::-webkit-details-marker { display: none; }
+.tool-group > summary::before { content: ''; flex: none; width: 5px; height: 5px; margin-right: 2px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .12s; }
+.tool-group[open] > summary::before { transform: rotate(45deg); }
+.tool-group > summary:hover { color: var(--text); }
+.tool-group > summary:focus-visible { outline: 2px solid var(--working); outline-offset: 1px; border-radius: 6px; }
+.tg-count { flex: none; color: var(--text); font-weight: 600; }
+.tg-names { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, Consolas, monospace; }
+.tg-sum { flex: none; }
+.tg-sum.warn { color: var(--waiting); font-weight: 600; }
+.tg-sum.run { color: var(--working); font-weight: 600; }
+.tool-group .msg-time { flex: none; margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); }
+.tool-group-body { display: grid; gap: 0; padding: 0 4px 6px; }
+.tool-group-body > .tool-line { justify-self: stretch; background: transparent; }
+.tool-group-body > .tool-line > summary:hover { background: color-mix(in srgb, var(--text) 6%, transparent); border-radius: 4px; }
 
 /* 許可・質問の結果: 状態の色で右寄せ。内容（入力・答え）を残す */
 .msg.res { justify-self: end; border-right: 4px solid transparent; border-radius: 10px 0 0 10px; }
@@ -176,14 +246,15 @@ button { cursor: pointer; }
 .msg.res-question { background: var(--question-bg); border-right-color: var(--question-solid); }
 .msg.res small { display: flex; align-items: center; color: var(--text); font-weight: 600; }
 .msg.res .pre { max-height: 8em; margin-bottom: 0; }
-.res-tag { display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 4px; color: #fff; font-size: 11px; font-weight: 700; }
+.msg.res .msg-time { margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); }
+.res-tag { display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 4px; color: #fff; font-size: 13px; font-weight: 700; }
 .res-permission .res-tag { background: var(--permission-solid); }
 .res-question .res-tag { background: var(--question-solid); }
-.res-q { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.res-q { margin-top: 4px; font-size: 14px; color: var(--muted); }
 .res-a { font-weight: 600; }
 
 /* 許可・質問のカードの中身 */
-.pre { margin: 6px 0; padding: 8px 10px; max-height: 14em; overflow: auto; font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.pre { margin: 6px 0; padding: 8px 10px; max-height: 14em; overflow: auto; font: 14px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .actions .btn { min-height: 38px; padding: 6px 22px; }
 .q { margin: 10px 0; }
@@ -200,9 +271,9 @@ button { cursor: pointer; }
 .dock textarea.inst:focus, .dock textarea.inst:focus-visible { outline: none; box-shadow: none; border-color: var(--border); }
 .dock textarea.inst:disabled { background: color-mix(in srgb, var(--text) 14%, var(--surface2)); color: var(--muted); cursor: not-allowed; opacity: 1; }
 .dock textarea.inst:disabled::placeholder { color: var(--muted); }
-.status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 4px; font-size: 13px; color: var(--muted); }
 .status-line .sl-id { font-family: ui-monospace, Consolas, monospace; }
-.status-line .state { padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.status-line .state { padding: 0 7px; border-radius: 999px; font-size: 13px; font-weight: 700; }
 .dock .to-bottom { position: absolute; right: max(16px, calc((100% - 860px) / 2 + 16px)); bottom: calc(100% + 10px); display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-height: 0; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
 .dock .to-bottom[hidden] { display: none; }
 
@@ -219,17 +290,29 @@ button { cursor: pointer; }
   .d-top .float, .dock .float { padding-left: 12px; padding-right: 12px; }
   .detail .d-body { padding-left: 12px; padding-right: 12px; }
   .dock .to-bottom { right: 12px; }
-  .d-head h2 { font-size: 18px; }
+  .d-head h2 { font-size: 22px; }
   .msg, .msg.res { max-width: 100%; }
   .actions .btn { min-height: 48px; flex: 1 1 40%; }
-  .dock textarea.inst { font-size: 16px; } /* iOS の拡大を防ぐ */
+  .dock textarea.inst { font-size: 18px; } /* iOS の拡大を防ぐ */
 }
+
+/* 設定（フィルター・ソート・メニューのパネルと、それを開くボタン）: 黒い文字・アイコン・塗りを、少し薄くする。ダークテーマは、そのまま */
+:root { --soft-ink: #4b5565; --soft-fill: #5a6475; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --soft-ink: var(--text); --soft-fill: var(--accent); } }
+:root[data-theme="dark"] { --soft-ink: var(--text); --soft-fill: var(--accent); }
+.panel, .panel .sort-btn, .panel .quit-btn, .panel select { color: var(--soft-ink); }
+.menu-btn[aria-expanded="true"], .mute-btn[aria-pressed="true"] { background: var(--soft-fill); border-color: var(--soft-fill); }
+.vol input[type="range"] { accent-color: var(--soft-fill); }
 </style>
 </head>
 <body data-view="list">
 <div class="mock-bar">
   <strong>試作（ダミーデータ・Hub には接続しません）</strong>
   <span>画面幅 800px 以下でスマホの表示になります</span>
+  <span>通知を試す:</span>
+  <button type="button" data-sim="complete">完了</button>
+  <button type="button" data-sim="permission">許可</button>
+  <button type="button" data-sim="question">質問</button>
   <button type="button" id="theme">ライト／ダーク</button>
   <button type="button" id="reset">データを戻す</button>
 </div>
@@ -237,6 +320,8 @@ button { cursor: pointer; }
   <aside class="side" id="side"></aside>
   <main class="main" id="main"></main>
 </div>
+<div id="modal"></div>
+<div id="flash" aria-hidden="true"></div>
 
 <script>
 // ================= ダミーデータ =================
@@ -269,12 +354,19 @@ const talk = (() => {
   const base = [
     ['user', 'テストを全部実行して、失敗したものを直して'],
     ['claude', 'テストを実行します。3 件が失敗しています。原因を調べて直します。'],
+    ['tool', {"id":"t1","name":"Bash","arg":"npm test","result":"error","time":"00:20","detail":"npm test"}],
+    ['tool', {"id":"t2","name":"Read","arg":"tests/sessions.test.mjs","result":"ok","time":"00:21","detail":"D:\\work\\coders-hub\\tests\\sessions.test.mjs"}],
+    ['result', {"type":"result","kind":"permission","status":"許可しました","tool":"Edit","desc":"Edit tests/sessions.test.mjs","time":"00:21","input":"{ \"file_path\": \"tests/sessions.test.mjs\",\n  \"old_string\": \"assert.equal(list.length, 2)\", \"new_string\": \"assert.equal(list.length, 3)\" }"}],
+    ['tool', {"id":"t3","name":"Edit","arg":"tests/sessions.test.mjs","result":"ok","time":"00:21","detail":"D:\\work\\coders-hub\\tests\\sessions.test.mjs"}],
+    ['tool', {"id":"t4","name":"Bash","arg":"npm test","result":"ok","time":"00:22","detail":"npm test"}],
     ['claude', 'sessions.test.mjs の期待値が古くなっていたので修正しました。全件通っています。'],
     ['user', 'カバレッジも見たいです。足りないところを教えてください'],
     ['claude', 'カバレッジを計測しました。\n\n- src/hub/requests.mjs: 97%\n- src/hub/hub.mjs: 91%\n- src/web/components.mjs: 88%\n- src/channel/channel.mjs: 74%（実機でしか通らない経路が多い）\n\n低いのは channel.mjs です。MCP クライアントを模擬するテストを足すと上がります。'],
+    ['tool', {"id":"t5","name":"Grep","arg":"\"asyncRewake\" in src/","result":"ok","time":"00:24","detail":"asyncRewake（D:\\work\\coders-hub\\src）"}],
     ['user', 'channel.mjs のテストを足してください'],
     ['claude', '偽の Hub を相手に、本物の channel.mjs を起動するテストを追加します。Hub への転送に失敗しても止まらないこと、/poll が切れても再接続すること、不正な応答を claude へ送らないことを確認します。'],
     ['claude', '追加しました。全体のテストは 339 件で、すべて通っています。\n\n気づいた点が 1 つあります。許可要求の転送に失敗したとき、ターミナルでは通常どおり応答できますが、ダッシュボード側にはその旨が出ません。必要なら、画面に「転送できませんでした」と出す変更を提案します。'],
+    ['tool', {"id":"t6","name":"Write","arg":"src/hub/cache.mjs","result":"rejected","time":"00:27","detail":"D:\\work\\coders-hub\\src\\hub\\cache.mjs"}],
     ['user', '今のままでよいです。それより、画面のデザインを直したいです'],
     ['claude', '分かりました。まず、どんなデザインにしたいかを教えてください。見た目の方向性、スマホへの対応、行の情報の整理などです。'],
     ['user', 'サイドバーとメインコンテンツにして、スマホにも対応したいです'],
@@ -285,13 +377,17 @@ const talk = (() => {
     more.push(['user', '続きをお願いします（' + i + '）'])
     more.push(['claude', '試作を直しました（' + i + '）。再読み込みして確認してください。\n変更点: 余白、色、並び順、ボタンの大きさ。\n気になる点があれば教えてください。'])
   }
-  return [...base, ...more]
+  return [...base, ...more, ['tool', {"id":"t7","name":"Bash","arg":"npm run build && node scripts/build-exe.mjs && ./dist/exe/coders-hub.exe setup | more","result":null,"time":"00:31","detail":"npm run build && node scripts/build-exe.mjs && ./dist/exe/coders-hub.exe setup | more\n# 画面をビルドし、exe を作り直して、セットアップの手順を確かめる"}]]
 })()
 
 // ================= 状態 =================
 const SHORT_INPUT_MAX = 200
 let sessions = initialSessions()
-let ui = { selected: null, opts: false, onlyControl: false, dirSort: 'asc', sessSort: 'early', collapsed: new Set(), draft: {}, events: {}, stick: false }
+// 通知の設定（このブラウザだけに、保存する。読み書きに失敗しても動く）
+const NOTIFY_KEY = 'coders-hub-mock-notify'
+const loadNotify = () => { try { return JSON.parse(localStorage.getItem(NOTIFY_KEY)) ?? {} } catch { return {} } }
+const saveNotify = () => { try { localStorage.setItem(NOTIFY_KEY, JSON.stringify({ mute: ui.mute, volume: ui.volume, blink: ui.blink, alertSec: ui.alertSec })) } catch { /* 保存できなくても動く */ } }
+let ui = { mute: false, volume: 60, blink: true, alertSec: 15, ...loadNotify(), selected: null, opts: false, menu: false, onlyControl: false, dirSort: 'asc', sessSort: 'early', collapsed: new Set(), draft: {}, events: {}, stick: false, openTools: new Set() }
 
 const $ = (s) => document.querySelector(s)
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
@@ -300,6 +396,41 @@ const isAtt = (s) => s.state === 'permission' || s.state === 'question'
 const isShort = (r) => r && r.kind === 'permission' && !r.elided && r.input.length <= SHORT_INPUT_MAX
 const SHORT = { permission: '許可', question: '質問', working: '作業' } // 返答待ちは何もない状態なので、札も文言も出さない
 const chip = (state, text) => `<span class="chip chip-${state}">${text ?? SHORT[state]}</span>`
+const TOOL_RESULT = { ok: '成功', error: 'エラー', rejected: '拒否' }
+// ツールの使用: 閉じた 1 行（ツール名・実行したコマンド／ファイル名・結果・時刻）。開くと、その全文。出力（結果の中身）は出さない。
+// 開いている行は、再描画しても開いたまま（data-tid で覚える）
+const toolLine = (t) => {
+  const label = t.result ? TOOL_RESULT[t.result] : '実行中'
+  const head = '<span class="tool-name">' + esc(t.name) + '</span><span class="tool-arg">' + esc(t.arg) + '</span><span class="tool-result">' + label + '</span><time class="msg-time">' + t.time + '</time>'
+  const cls = 'tool-line tool-' + (t.result ?? 'running')
+  // 全文が、閉じた行の表示と同じ（例: npm test）なら、開く意味がないので、開閉しない
+  if (t.detail === t.arg) return '<div class="' + cls + '"><div class="tl-row">' + head + '</div></div>'
+  return '<details class="' + cls + '" data-tid="' + t.id + '"' + (ui.openTools.has(t.id) ? ' open' : '') + '><summary>' + head + '</summary>' +
+    '<div class="tool-detail"><pre class="pre">' + esc(t.detail) + '</pre></div></details>'
+}
+// 連続したツール（2 件以上）を 1 つのグループにする。1 件だけのときは、まとめない
+const groupTools = (items) => {
+  const out = []
+  let run = []
+  const flush = () => { if (run.length >= 2) out.push(['toolgroup', { id: 'g-' + run[0].id, tools: run }]); else run.forEach((t) => out.push(['tool', t])); run = [] }
+  for (const [w, t] of items) { if (w === 'tool') run.push(t); else { flush(); out.push([w, t]) } }
+  flush()
+  return out
+}
+// グループの閉じた 1 行: 件数・ツール名（回数）・結果の内訳（成功・エラー・拒否・実行中）・時刻の範囲。開くと、個別の行
+const toolGroup = (g) => {
+  const names = new Map()
+  g.tools.forEach((t) => names.set(t.name, (names.get(t.name) ?? 0) + 1))
+  const nameText = [...names].map(([n, c]) => (c > 1 ? n + ' ×' + c : n)).join(' · ')
+  const n = (k) => g.tools.filter((t) => (t.result ?? 'running') === k).length
+  const sums = [['ok', '成功', ''], ['error', 'エラー', 'warn'], ['rejected', '拒否', 'warn'], ['running', '実行中', 'run']]
+    .filter(([k]) => n(k)).map(([k, label, cls]) => '<span class="tg-sum ' + cls + '">' + label + ' ' + n(k) + '</span>').join('')
+  const first = g.tools[0].time, last = g.tools[g.tools.length - 1].time
+  return '<details class="tool-group" data-tid="' + g.id + '"' + (ui.openTools.has(g.id) ? ' open' : '') + '>' +
+    '<summary><span class="tg-count">ツール ' + g.tools.length + ' 件</span><span class="tg-names">' + esc(nameText) + '</span>' + sums +
+    '<time class="msg-time">' + (first === last ? first : first + '〜' + last) + '</time></summary>' +
+    '<div class="tool-group-body">' + g.tools.map(toolLine).join('') + '</div></details>'
+}
 
 // ================= 絞り込み・並び =================
 const visible = () => sessions.filter((s) => {
@@ -347,6 +478,10 @@ const sessItem = (s) => {
     '<span class="sess-prompt">' + esc(s.prompt || '（発言なし）') + '</span></button>' + requestBlock(s) + '</div></li>'
 }
 const ICON = '<svg width="20" height="16" viewBox="0 0 26 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h13l-5 6v7l-3-2V9z"/><path d="M21 3v14M18.5 14.5L21 17l2.5-2.5M18.5 5.5L21 3l2.5 2.5"/></svg>'
+const MENU_ICON = '<svg width="20" height="16" viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 3h14M3 8h14M3 13h14"/></svg>'
+const SPEAKER = '<svg width="18" height="16" viewBox="0 0 24 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h4l5-4v14l-5-4H3z"/><path d="M16 7a4 4 0 010 6M18.5 4.5a8 8 0 010 11"/></svg>'
+const MUTED = '<svg width="18" height="16" viewBox="0 0 24 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h4l5-4v14l-5-4H3z"/><path d="M16 7l5 6M21 7l-5 6"/></svg>'
+const VERSION = '0.0.0' // ダミー。実装では、Hub が知っているバージョンを出す
 const renderSide = () => {
   const list = visible()
   const tree = buildTree(list)
@@ -361,17 +496,25 @@ const renderSide = () => {
   }).join('')
   $('#side').innerHTML =
     '<div class="side-head"><div class="head-row"><h1>Coders Hub</h1>' +
-    '<button class="menu-btn" data-act="opts" aria-expanded="' + ui.opts + '" aria-label="フィルター・ソート" title="フィルター・ソート">' + ICON + (ui.onlyControl ? '<span class="dot"></span>' : '') + '</button></div>' +
+    '<button class="menu-btn" data-act="opts" aria-expanded="' + ui.opts + '" aria-label="フィルター・ソート" title="フィルター・ソート">' + ICON + (ui.onlyControl ? '<span class="dot"></span>' : '') + '</button>' +
+    '<button class="menu-btn" data-act="menu" aria-expanded="' + ui.menu + '" aria-label="メニュー" title="メニュー">' + MENU_ICON + '</button></div>' +
     (ui.opts ? '<div class="panel">' +
       '<div class="panel-sec">' +
         '<div class="panel-row"><span>操作できるものだけ</span><button class="switch" role="switch" aria-checked="' + ui.onlyControl + '" data-act="control"><span class="knob"></span></button></div></div>' +
       '<div class="panel-sec">' +
         '<div class="panel-row"><span>プロジェクト</span><button class="sort-btn" data-act="dirtoggle">' + (ui.dirSort === 'asc' ? '↑ 昇順' : '↓ 降順') + '</button></div>' +
         '<div class="panel-row"><span>セッション</span><button class="sort-btn" data-act="sesstoggle">' + (ui.sessSort === 'early' ? '↑ 昇順' : '↓ 降順') + '</button></div></div>' +
-      '<div class="panel-sec">' + (ui.quit
-        ? '<div class="quit-note">Hub を終了します。動いているセッションは、Hub を起動し直すまで一覧から消えます。</div>' +
-          '<div class="quit-actions"><button class="sort-btn" data-act="quitcancel">やめる</button><button class="quit-btn" data-act="quitgo">終了する</button></div>'
-        : '<div class="panel-row"><span>Hub</span><button class="quit-btn" data-act="quit">終了…</button></div>') + '</div>' +
+    '</div>' : '') +
+    (ui.menu ? '<div class="panel">' +
+      '<div class="panel-sec"><div class="panel-row"><span>バージョン</span><span class="panel-val">' + VERSION + '</span></div></div>' +
+      '<div class="panel-sec">' +
+        '<div class="panel-row"><span>音量</span><span class="vol"><button class="sort-btn mute-btn" data-act="mute" aria-pressed="' + ui.mute + '" aria-label="ミュート" title="ミュート">' + (ui.mute ? MUTED : SPEAKER) + '</button>' +
+          '<input type="range" min="0" max="100" step="5" value="' + ui.volume + '" data-act="volume" aria-label="音量"' + (ui.mute ? ' disabled' : '') + '><span class="vol-num" id="vol-num">' + ui.volume + '</span></span></div>' +
+        '<div class="panel-row"><span>画面の点滅</span><button class="switch" role="switch" aria-checked="' + ui.blink + '" data-act="blink"><span class="knob"></span></button></div>' +
+        '<div class="panel-row"><span>続ける時間</span><select class="sort-btn" data-act="duration" aria-label="点滅と音を続ける時間"' + (ui.mute && !ui.blink ? ' disabled' : '') + '>' +
+          [[5, '5 秒'], [15, '15 秒'], [30, '30 秒'], [60, '1 分'], [0, '操作するまで']].map(([v, label]) => '<option value="' + v + '"' + (ui.alertSec === v ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>' +
+      '</div>' +
+      '<div class="panel-sec"><div class="panel-row"><span>Hub</span><button class="quit-btn" data-act="quit">終了…</button></div></div>' +
     '</div>' : '') + '</div>' +
     '<div class="side-scroll">' +
     (tree.length ? '<ul class="tree">' + treeHtml + '</ul>' : '<div class="none">該当するセッションがありません</div>') + '</div>'
@@ -396,7 +539,7 @@ const requestCard = (s) => {
     <div class="actions"><button class="btn btn-primary" data-act="answer" data-id="${s.id}" ${d.every((x) => x.sel.length || x.other.trim()) ? '' : 'disabled'}>回答する</button></div></section>`
 }
 const resultBubble = (e) => {
-  const head = '<small><span class="res-tag">' + (e.kind === 'permission' ? '許可' : '質問') + '</span>' + esc(e.status) + '</small>'
+  const head = '<small><span class="res-tag">' + (e.kind === 'permission' ? '許可' : '質問') + '</span>' + esc(e.status) + (e.time ? '<time class="msg-time">' + e.time + '</time>' : '') + '</small>'
   const body = e.kind === 'permission'
     ? '<div><b>' + esc(e.tool) + '</b> — ' + esc(e.desc) + '</div><pre class="pre">' + esc(e.input) + '</pre>'
     : e.answers.map((x) => '<div class="res-q">' + esc(x.q) + '</div><div class="res-a">' + esc(x.a) + '</div>').join('')
@@ -419,7 +562,7 @@ const renderMain = () => {
     '<div class="d-head"><h2>' + esc(s.cwd) + '</h2></div>' +
     '<div class="d-meta1">' + esc(s.account) + '</div></div></div>' +
     '<div class="d-body"><section class="card">' +
-      '<div class="talk">' + talk.map(([w, t]) => '<div class="msg ' + w + '"><small>' + (w === 'user' ? 'あなた' : 'Claude') + '</small>' + esc(t) + '</div>').join('') +
+      '<div class="talk">' + groupTools(talk).map(([w, t]) => w === 'tool' ? toolLine(t) : w === 'toolgroup' ? toolGroup(t) : w === 'result' ? resultBubble(t) : '<div class="msg ' + w + '"><small>' + (w === 'user' ? 'あなた' : 'Claude') + '</small>' + esc(t) + '</div>').join('') +
       requestCard(s) +
       events.map((e, i) => e.type === 'result'
         ? resultBubble(e)
@@ -440,13 +583,70 @@ const updateBottom = () => {
   if (!sc || !btn) return
   btn.hidden = sc.scrollHeight - sc.scrollTop - sc.clientHeight <= 160 // 一番下に近いときは出さない
 }
-const render = () => { renderSide(); renderMain(); document.body.dataset.view = ui.selected && ui.view === 'detail' ? 'detail' : 'list' }
+// ================= 通知（音・点滅）=================
+// 音は、WebAudio で作る（音声ファイルは持たない）。ブラウザの決まりで、最初に画面を操作するまで、音は出ない
+let audio = null
+const TONES = { complete: [523.25, 659.25, 783.99], permission: [660, 660], question: [392, 523.25] } // 完了: 上がる 3 音／許可: 同じ音 2 回／質問: 上がる 2 音
+const FLASH = { complete: 'var(--working)', permission: 'var(--permission-solid)', question: 'var(--question-solid)' }
+const playSound = (kind) => {
+  if (ui.mute || ui.volume <= 0) return
+  try {
+    audio ??= new (window.AudioContext || window.webkitAudioContext)()
+    if (audio.state === 'suspended') audio.resume()
+    const t0 = audio.currentTime
+    TONES[kind].forEach((freq, i) => {
+      const osc = audio.createOscillator(), gain = audio.createGain(), at = t0 + i * 0.16
+      osc.type = 'sine'; osc.frequency.value = freq
+      gain.gain.setValueAtTime(0, at)
+      gain.gain.linearRampToValueAtTime((ui.volume / 100) * 0.3, at + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.24)
+      osc.connect(gain).connect(audio.destination)
+      osc.start(at); osc.stop(at + 0.27)
+    })
+  } catch { /* 音が出せなくても、画面は動く */ }
+}
+// 1 回点滅させる（2 秒間に 3 回）。メニューの「画面の点滅」が OFF のときは、何もしない
+const flash = (kind) => {
+  if (!ui.blink) return
+  const el = $('#flash')
+  el.style.setProperty('--flash', FLASH[kind])
+  el.classList.remove('on')
+  void el.offsetWidth
+  el.classList.add('on')
+}
+// 通知: 設定の時間（メニューの「続ける時間」）の間、ALERT_EVERY ごとに、音と点滅をくり返す。画面を操作（クリック・キー入力）したら、止める。新しい通知が来たら、そちらに切り替える
+const ALERT_EVERY = 3000, ALERT_MAX_MS = 10 * 60 * 1000
+const alertMs = () => (ui.alertSec === 0 ? ALERT_MAX_MS : ui.alertSec * 1000)
+let alertTimer = null
+const stopAlert = () => {
+  clearInterval(alertTimer); alertTimer = null
+  $('#flash').classList.remove('on')
+}
+const notify = (kind) => {
+  stopAlert()
+  const once = () => { playSound(kind); flash(kind) }
+  once()
+  const end = Date.now() + alertMs()
+  alertTimer = setInterval(() => (Date.now() + ALERT_EVERY / 2 >= end ? stopAlert() : once()), ALERT_EVERY)
+}
+;['pointerdown', 'keydown'].forEach((type) => document.addEventListener(type, () => { if (alertTimer) stopAlert() }, true))
+
+// 終了の確認（モーダル）。開いたら「やめる」にフォーカスを置く（Enter の押し間違いで、終了しないように）
+const renderModal = () => {
+  $('#modal').innerHTML = ui.quit
+    ? '<div class="modal-back" data-act="quitcancel"><div class="modal" data-act="noop" role="dialog" aria-modal="true" aria-labelledby="modal-title">' +
+      '<h2 id="modal-title">Hub を終了しますか？</h2>' +
+      '<div class="modal-actions"><button type="button" id="modal-cancel" data-act="quitcancel">やめる</button><button type="button" class="danger" data-act="quitgo">終了する</button></div></div></div>'
+    : ''
+  if (ui.quit) $('#modal-cancel')?.focus()
+}
+const render = () => { renderSide(); renderMain(); renderModal(); document.body.dataset.view = ui.selected && ui.view === 'detail' ? 'detail' : 'list' }
 
 // ================= 操作 =================
 const finish = (s, status, next) => {
   const req = s.request
   const answers = req.kind === 'question' ? req.questions.map((q, i) => ({ q: q.q, a: ui.draft[s.id][i].other.trim() || ui.draft[s.id][i].sel.join(',') })) : null
-  ;(ui.events[s.id] ??= []).push({ type: 'result', kind: req.kind, status, tool: req.tool, desc: req.desc, input: req.input, answers }); ui.stick = true
+  ;(ui.events[s.id] ??= []).push({ type: 'result', kind: req.kind, status, tool: req.tool, desc: req.desc, input: req.input, answers, time: new Date().toTimeString().slice(0, 5) }); ui.stick = true
   s.request = null
   s.state = next
   s.since = 0
@@ -465,10 +665,15 @@ document.addEventListener('click', (e) => {
     return
   }
   else if (act === 'control') ui.onlyControl = !ui.onlyControl
-  else if (act === 'opts') { ui.opts = !ui.opts; ui.quit = false }
+  else if (act === 'opts') { ui.opts = !ui.opts; ui.menu = false; ui.quit = false }
+  else if (act === 'menu') { ui.menu = !ui.menu; ui.opts = false; ui.quit = false }
   else if (act === 'quit') ui.quit = true
+  else if (act === 'noop') return
+  else if (act === 'volume' || act === 'duration') return
+  else if (act === 'mute') { ui.mute = !ui.mute; saveNotify() }
+  else if (act === 'blink') { ui.blink = !ui.blink; saveNotify(); if (ui.blink) flash('complete') }
   else if (act === 'quitcancel') ui.quit = false
-  else if (act === 'quitgo') { ui.quit = false; ui.opts = false }
+  else if (act === 'quitgo') { ui.quit = false; ui.menu = false }
   else if (act === 'dirtoggle') ui.dirSort = ui.dirSort === 'asc' ? 'desc' : 'asc'
   else if (act === 'sesstoggle') ui.sessSort = ui.sessSort === 'early' ? 'late' : 'early'
   else if (act === 'toggle') { const k = el.dataset.k; ui.collapsed.has(k) ? ui.collapsed.delete(k) : ui.collapsed.add(k) }
@@ -486,6 +691,15 @@ document.addEventListener('click', (e) => {
   }
   render()
 })
+// 音量: つまみを動かしている間は、再描画しない（つまみが戻るため）。離したときに、試し聞きをする
+document.addEventListener('input', (e) => {
+  if (e.target.dataset.act === 'volume') { ui.volume = +e.target.value; $('#vol-num').textContent = ui.volume; saveNotify() }
+})
+document.addEventListener('change', (e) => {
+  if (e.target.dataset.act === 'volume') playSound('complete')
+  if (e.target.dataset.act === 'duration') { ui.alertSec = +e.target.value; saveNotify() }
+})
+document.querySelectorAll('[data-sim]').forEach((b) => b.addEventListener('click', () => notify(b.dataset.sim)))
 document.addEventListener('input', (e) => {
   if (e.target.dataset.act === 'other') {
     const s = sessions.find((x) => x.id === e.target.dataset.id), d = ui.draft[s.id][+e.target.dataset.i]
@@ -506,8 +720,14 @@ const sendMessage = () => {
   $('#inst')?.focus()
 }
 document.addEventListener('keydown', (e) => {
+  if (ui.quit && e.key === 'Escape') { ui.quit = false; render(); return }
   if (e.target.id === 'inst' && e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMessage() }
 })
+// 開閉を覚える（再描画しても、開いたまま）。toggle は、バブルしないので、キャプチャで受ける
+document.addEventListener('toggle', (e) => {
+  const el = e.target
+  if (el.matches?.('details.tool-line, details.tool-group')) el.open ? ui.openTools.add(el.dataset.tid) : ui.openTools.delete(el.dataset.tid)
+}, true)
 $('#theme').onclick = () => {
   const dark = matchMedia('(prefers-color-scheme: dark)').matches
   const cur = document.documentElement.dataset.theme ?? (dark ? 'dark' : 'light')
