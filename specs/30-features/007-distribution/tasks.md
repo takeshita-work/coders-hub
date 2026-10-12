@@ -54,6 +54,12 @@
 - [x] T4e-1 `stripJsonComments`（`//`・`/* */`・BOM）と、`config.json` の読み込み（AC-011-27）
 - [x] T4e-2 見本を `config.example.jsonc`（コメントつき）にする。説明用のキー（`_説明`）はやめる
 
+## フェーズ 4f: 起動時の案内（ADR 0024）
+- [x] T4f-1 `src/cli/guide.mjs`（案内の本文と、cmd の start で別のコンソールのウィンドウに出す処理）、`waitForHub`、引数なしと `start` の分離（AC-011-28）
+- [x] T4f-2 テスト（`tests/start.test.mjs`）。表示の仕組み（`start` で新しいコンソールが開き、`set /p` で待つ）を実機で確認
+- [x] T4f-3 文書: README・`docs/setup.md`・`docs/release-readme.txt`（ダブルクリックと `start` の使い分け）
+- [x] T4f-4 ビルドした exe のダブルクリック相当で、案内のウィンドウ（Windows Terminal）が出て、Hub が 1 つだけ動き、2 回目は「すでに起動しています」になることを確認。cmd が `start` を終えるまで待たないと、親の exe の終了で案内も消えるため、待つようにした。Enter キーでの閉じ方は、画面での目視は未確認
+
 ## フェーズ 5: 確認
 - [x] T5-1 テスト（サブコマンド・アセット配信・設定の生成・自動起動）（AC-011-5〜11）
 - [x] T5-2 開発時の動作が変わらないこと（`npm test`・`npm start`）（AC-011-13）

@@ -19,8 +19,9 @@ Coders Hub __VERSION__（Windows x64）
    - 「2. 一覧だけのモード」「3. 操作モード」: JSON を、coders-hub.json などの名前で保存します。
 
 【使い方】
-1. Hub を起動します。coders-hub.exe をダブルクリックします（ウィンドウは出ません。すでに動いていれば、何も起きません）。
-   ログオン時に自動で起動したいときは、スタートアップ（shell:startup）に、coders-hub.exe のショートカットを置きます。
+1. Hub を起動します。coders-hub.exe をダブルクリックします。Hub はウィンドウなしで動き、案内のウィンドウ（画面の URL・終了の方法）が出ます。
+   Enter で閉じます（閉じても Hub は動き続けます）。
+   ログオン時に自動で起動したいときは、スタートアップ（shell:startup）に、「coders-hub.exe start」（案内なし）のショートカットを置きます。
 2. claude を起動します（一覧だけのモード）。
      claude --mcp-config coders-hub.json
    指示の送信・許可と質問への応答もしたいときは、操作モードで起動します。

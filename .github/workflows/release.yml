@@ -54,8 +54,8 @@ jobs:
           $env:CODERS_HUB_INTERNAL_PORT = '38765'
           $env:CODERS_HUB_UI_PORT = '38766'
           $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'coders-hub-local'
-          # 引数なしの実行（ダブルクリックと同じ）: Hub を切り離して起動して、すぐ終了する
-          $launcher = Start-Process -FilePath $exe -PassThru
+          # start: Hub を切り離して起動して、すぐ終了する（案内のウィンドウは出さない。引数なしのダブルクリックは、案内のウィンドウを出す）
+          $launcher = Start-Process -FilePath $exe -ArgumentList 'start' -PassThru
           if (-not $launcher.WaitForExit(10000)) { throw '引数なしの実行が終了しません' }
           try {
             $ok = $false

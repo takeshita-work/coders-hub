@@ -26,7 +26,7 @@ export const openHubLog = (file, { maxBytes = MAX_LOG_BYTES, fsImpl = fs } = {})
   }
 }
 
-// 戻り値: { started: true } 起動した / { started: false, reason: 'running' | 'config' | 'spawn' }
+// 戻り値: { started: true, config } 起動した / { started: false, reason: 'running' | 'config' | 'spawn', config?, error? }
 export const startHub = async ({
   env = process.env,
   load = loadConfig,
@@ -45,17 +45,26 @@ export const startHub = async ({
       config = load(env)
     } catch (e) {
       note(`設定を読めないので、Hub を起動しません: ${e.message}`)
-      return { started: false, reason: 'config' }
+      return { started: false, reason: 'config', error: e.message }
     }
-    if (await up(config)) return { started: false, reason: 'running' }
+    if (await up(config)) return { started: false, reason: 'running', config }
     try {
       spawnHub(undefined, env, { stdio: ['ignore', fd ?? 'ignore', fd ?? 'ignore'] })
     } catch (e) {
       note(`Hub を起動できませんでした: ${e.message}`)
-      return { started: false, reason: 'spawn' }
+      return { started: false, reason: 'spawn', config, error: e.message }
     }
-    return { started: true }
+    return { started: true, config }
   } finally {
     if (fd !== null) { try { closeLog(fd) } catch { /* 閉じられなくても続ける */ } }
   }
+}
+
+// 起動した Hub が応答するまで待つ（案内の表示用）。応答したら true、時間切れなら false
+export const waitForHub = async (config, { up = isHubUp, timeoutMs = 5000, intervalMs = 100, wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) => {
+  for (let waited = 0; waited <= timeoutMs; waited += intervalMs) {
+    if (await up(config)) return true
+    await wait(intervalMs)
+  }
+  return false
 }

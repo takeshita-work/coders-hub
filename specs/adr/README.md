@@ -37,3 +37,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0021 | 設定ファイル（config.json）は、coders-hub.exe と同じフォルダに置く | Accepted |
 | 0022 | 配布物は、zip にせず、exe などを個別の資産としてリリースに添付する | Accepted |
 | 0023 | 設定ファイル（config.json）には、JSONC のコメントを書けるようにする | Accepted |
+| 0024 | exe のダブルクリックでは、案内のウィンドウ（URL・終了の方法）を出し、Enter で閉じる | Accepted |
