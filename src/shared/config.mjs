@@ -1,10 +1,12 @@
 // 設定の置き場所（ADR 0019）。優先順位: 環境変数 > 設定ファイル（config.json）> 既定値。
 // hook.mjs / channel.mjs / hub.mjs が共通で読む。3 つが同じファイルを読むので、ポートがずれない。
-// 設定ファイル: %APPDATA%\coders-hub\config.json（環境変数 CODERS_HUB_CONFIG でパスを変えられる）。
+// 設定ファイル: 配布版は coders-hub.exe と同じフォルダの config.json（ADR 0021）。環境変数 CODERS_HUB_CONFIG でパスを変えられる。
+// 開発時（node で起動）は、CODERS_HUB_CONFIG を指定したときだけ読む。
 // 設定ファイルで変えられるのは、ポート（internalPort・uiPort）だけ。
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { isSea } from 'node:sea'
 
 export const DEFAULT_INTERNAL_PORT = 47765
 export const DEFAULT_UI_PORT = 47766
@@ -23,9 +25,9 @@ const intFromEnv = (env, name, fallback) => {
   return n
 }
 
-// 設定ファイルのパス。環境変数に APPDATA も CODERS_HUB_CONFIG もなければ、null（ファイルは読まない）
-export const configFilePath = (env = process.env) =>
-  env.CODERS_HUB_CONFIG || (env.APPDATA ? path.join(env.APPDATA, 'coders-hub', 'config.json') : null)
+// 設定ファイルのパス。CODERS_HUB_CONFIG > exe と同じフォルダの config.json（配布版のみ）。どちらもなければ null（ファイルは読まない）
+export const configFilePath = (env = process.env, { sea = isSea(), execPath = process.execPath } = {}) =>
+  env.CODERS_HUB_CONFIG || (sea ? path.join(path.dirname(execPath), 'config.json') : null)
 
 // ファイルがなければ {}。壊れているときは、ファイルのパスを入れたエラーにする（黙って既定値に戻すと、ポートがずれる）
 const readConfigFile = (file, readFile) => {
@@ -51,8 +53,8 @@ const readConfigFile = (file, readFile) => {
   return out
 }
 
-export const loadConfig = (env = process.env, { readFile = (f) => fs.readFileSync(f, 'utf8') } = {}) => {
-  const file = readConfigFile(configFilePath(env), readFile)
+export const loadConfig = (env = process.env, { readFile = (f) => fs.readFileSync(f, 'utf8'), sea, execPath } = {}) => {
+  const file = readConfigFile(configFilePath(env, { ...(sea === undefined ? {} : { sea }), ...(execPath === undefined ? {} : { execPath }) }), readFile)
   return {
     host: '127.0.0.1',
     // 内部 API（hook / channel → Hub）。外に出さない（security.md）

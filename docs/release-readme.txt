@@ -30,8 +30,8 @@ Coders Hub __VERSION__（Windows x64）
    Edge / Chrome の「アプリとしてインストール」で、専用のウィンドウにもできます。
 
 【ポート】
-- 内部 47765、画面 47766 です。変えるときは、次のファイルを作ります（Hub・フック・チャネルサーバーのすべてが、同じファイルを読みます）。
-  %APPDATA%\coders-hub\config.json
+- 内部 47765、画面 47766 です。変えるときは、coders-hub.exe と同じフォルダに、次のファイル（config.json）を作ります（Hub・フック・チャネルサーバーのすべてが、同じファイルを読みます）。
+  exe は、書き込めるフォルダに置いてください。
   { "internalPort": 47765, "uiPort": 47766 }
   片方だけでも書けます。環境変数 CODERS_HUB_INTERNAL_PORT・CODERS_HUB_UI_PORT があれば、そちらが優先です。
   変えたあとは、動いている Hub を止めて、claude を起動し直します。
@@ -44,7 +44,7 @@ Coders Hub __VERSION__（Windows x64）
 
 【アンインストール】
 - Hub を終了し、claude の設定から、追加したフック設定と MCP の設定を消し、coders-hub.exe を削除します。
-  必要なら、%APPDATA%\coders-hub\（設定）と %LOCALAPPDATA%\coders-hub\（ログ）も削除します。
+  必要なら、config.json（exe と同じフォルダ）と、%LOCALAPPDATA%\coders-hub\（ログ）も削除します。
 
 【困ったとき】
 - 一覧に出ない: http://127.0.0.1:47765/health が ok を返すか確認します。claude で /mcp を開き、

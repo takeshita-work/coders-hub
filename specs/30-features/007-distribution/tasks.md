@@ -31,7 +31,7 @@
 - [x] T4-4 利用者向けの README（AC-011-14。`README.md` と、zip の `README.txt`）
 
 ## フェーズ 4b: ポートの設定ファイル（ADR 0019）
-- [x] T4b-1 `src/shared/config.mjs`: 設定ファイル（`%APPDATA%\coders-hub\config.json`）の読み込み、優先順位（環境変数 > ファイル > 既定）、既定を 47765 / 47766 に（AC-011-15〜19）
+- [x] T4b-1 `src/shared/config.mjs`: 設定ファイル（exe と同じフォルダの `config.json`。ADR 0021）の読み込み、優先順位（環境変数 > ファイル > 既定）、既定を 47765 / 47766 に（AC-011-15〜19）
 - [x] T4b-2 テスト（`tests/config.test.mjs`）
 - [x] T4b-3 文書: README・`docs/setup.md`・`docs/release-readme.txt`・設計（architecture・security・api）の既定ポートと、ポートの変え方
 

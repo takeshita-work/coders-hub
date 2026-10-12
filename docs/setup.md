@@ -61,21 +61,20 @@ Hub のポートは `127.0.0.1` の 47765（内部）と 47766（画面）。変
 
 既定の **47765（内部）・47766（画面）** は、Web 開発でよく使われるポートと重なりにくく、Windows が自動で割り当てるポート（49152 以降）とも重ならない（ADR 0019）。他のアプリと重なったときだけ、変える。
 
-`%APPDATA%\coders-hub\config.json` を作る（フォルダがなければ作る）。
+**配布版**: `coders-hub.exe` と同じフォルダに、`config.json` を作る（exe は、書き込めるフォルダに置く。zip には `config.json` を入れていないので、更新で exe を置き換えても残る）。**開発版**（`node` で起動）: 既定ではファイルを読まない。使うときは、環境変数 `CODERS_HUB_CONFIG` にパスを指定する（ADR 0021）。
 
 ```json
 { "internalPort": 47765, "uiPort": 47766 }
 ```
 
 ```powershell
-# 例: ファイルを作って開く
-New-Item -ItemType Directory -Force "$env:APPDATA\coders-hub" | Out-Null
-notepad "$env:APPDATA\coders-hub\config.json"
+# 例（配布版）: exe と同じフォルダで作って開く
+notepad .\config.json
 ```
 
 - どちらか片方だけでもよい。書いていないほうは既定値になる
 - **優先順位: 環境変数 > 設定ファイル > 既定値**。環境変数 `CODERS_HUB_INTERNAL_PORT`・`CODERS_HUB_UI_PORT` は、一時的な上書き・テスト用
-- 設定ファイルのパスは、環境変数 `CODERS_HUB_CONFIG` で変えられる
+- 設定ファイルのパスは、環境変数 `CODERS_HUB_CONFIG` で変えられる（配布版でも使える）
 - Hub・フック（`hook.mjs`・`ask-hook.mjs`）・チャネルサーバー（`channel.mjs`）の 3 つが、同じファイルを読むので、値がずれない
 - 書き方が間違っているとき（JSON の誤り・ポートが 1〜65535 でない）は、Hub が、ファイルのパスを示して終了する
 - **変えたあとは、動いている Hub を止めて（4-3）、起動し直す**。`netstat -ano | findstr 47765` で PID を調べ、`taskkill /F /PID <PID>`

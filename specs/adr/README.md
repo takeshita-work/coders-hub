@@ -34,3 +34,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0018 | 配布は、単一の exe（Node の Single Executable Applications）を、GitHub のリリースで行う | Accepted |
 | 0019 | ポートは設定ファイル（config.json）でも変えられるようにし、既定を 47765 / 47766 にする | Accepted |
 | 0020 | Hub の起動をチャネルサーバーから切り離し、exe のダブルクリックでウィンドウなしに起動する | Accepted |
+| 0021 | 設定ファイル（config.json）は、coders-hub.exe と同じフォルダに置く | Accepted |
