@@ -38,7 +38,7 @@
 - [ ] 画面をビルドする: `npm run build`
 - [ ] 動いている Hub を止める（新しいコードで起動し直すため）。止めると、次に起動する `claude` のチャネルサーバーが、新しい Hub を自動で起動する
   ```powershell
-  Stop-Process -Id (Get-NetTCPConnection -LocalPort 8765 -State Listen).OwningProcess
+  Stop-Process -Id (Get-NetTCPConnection -LocalPort 47765 -State Listen).OwningProcess
   ```
 - [ ] このリポジトリのルートの `.claude/settings.local.json` に、質問用のフック（`matcher: "AskUserQuestion"`）を足してある（`node scripts/print-setup.mjs` の「1」と同じ内容）。ルートの設定には、確認用に `Bash(ls:*)` と `Edit(spikes/sandbox/**)` を「確認を求める」にしてある（`ls` と `spikes/sandbox` 以下の書き込みで許可画面が出る）
 - [ ] 検証用のファイルがある: `spikes/sandbox/t10-12k.txt`（12,000 文字）
@@ -49,7 +49,7 @@
   ```
   警告画面が出たら承認する。`/mcp` で `coders-hub` が connected であること
 - [ ] 権限モードを、確認が出る通常のモードにする（auto などだと許可画面が出ない）
-- [ ] ブラウザで `http://127.0.0.1:8766/` を開く（必要なら Ctrl+F5）
+- [ ] ブラウザで `http://127.0.0.1:47766/` を開く（必要なら Ctrl+F5）
 
 ### 手順
 
@@ -67,7 +67,7 @@
 | 10 | 手順 8 の依頼をして、**ダッシュボードで何も答えず、約 90 秒待つ** | 「時間切れ」と出る。ターミナルの質問画面は残っていて、ターミナルで答えられる（AC-004-11） | ○ 約 90 秒で「時間切れ」。ターミナルの質問画面は残り、答えられた |
 | 11 | 手順 8 の依頼をして、**ターミナルで**先に答える | ダッシュボードの質問が閉じ、「ターミナルで応答済み」と出る（AC-005-4, 005-6） | ○ 「ターミナルで応答済み」で閉じた |
 | 12 | 手順 8 の依頼をして、**ターミナルで** Esc を押して質問を拒否する | ダッシュボードの質問が閉じる（AC-005-7） | ○ 「ターミナルで応答済み」で閉じ、行は返答待ちに戻った |
-| 13 | 別のターミナルで、ヘッダーなしの応答を試す: `curl.exe -i -X POST http://127.0.0.1:8766/api/sessions/x/requests/y/response -H "Content-Type: application/json" -d "{}"` | `403 Forbidden`（AC-004-13） | ○ ヘッダーなし・別 Origin・JSON 以外の Content-Type の 3 通りとも 403 |
+| 13 | 別のターミナルで、ヘッダーなしの応答を試す: `curl.exe -i -X POST http://127.0.0.1:47766/api/sessions/x/requests/y/response -H "Content-Type: application/json" -d "{}"` | `403 Forbidden`（AC-004-13） | ○ ヘッダーなし・別 Origin・JSON 以外の Content-Type の 3 通りとも 403 |
 
 ### 記録しておくこと
 - 手順 1 で、許可画面が出てから、ダッシュボードに許可要求が出るまでの時間（体感）

@@ -99,7 +99,7 @@ Request {
 
 ## API の追加
 
-### 内部（`:8765`）
+### 内部（`:47765`）
 `POST /permission`（チャネルサーバー → Hub）
 - 本文: `{ session, request_id, tool_name, description, input_preview }`
 - 応答: 204。セッションが操作モードでないときは 409（チャネルサーバーは無視してよい。ターミナルに任せる）
@@ -115,7 +115,7 @@ Request {
 - 応答に `verdicts` を追加できる: `{ "instructions": [...], "verdicts": [{ "request_id", "behavior": "allow" | "deny" }] }`（どちらも省略可。1 つ以上あれば 200）
 - 許可の応答ができたら、待機中の `/poll` をすぐ 200 で終わらせる
 
-### 画面用（`:8766`、ADR 0012 の保護あり）
+### 画面用（`:47766`、ADR 0012 の保護あり）
 `POST /api/sessions/:sessionId/requests/:requestId/response`
 - 許可: `{ "behavior": "allow" | "deny" }`
 - 質問: `{ "answers": { "<質問文>": "<文字列>" | ["<文字列>", …] } }`。配列はカンマ区切りの 1 つの文字列にして渡す

@@ -4,7 +4,7 @@
 - 実装: `src/hub/hub.mjs`。結合テスト: `tests/hub.test.mjs`、`tests/hub-instructions.test.mjs`、`tests/hub-requests.test.mjs`
 - 概要は `../architecture.md`、セキュリティは `../security.md`
 
-## 内部 API（`127.0.0.1:8765`、外部公開しない）
+## 内部 API（`127.0.0.1:47765`、外部公開しない）
 `hook.mjs`・`channel.mjs` から Hub 本体への通信。本文は JSON（上限 1MB）。
 
 | エンドポイント | 呼び出し元 | 内容 | 応答 |
@@ -60,7 +60,7 @@
 - 400: `session` がない・`questions` が不正
 - 応答する前に接続が切れた（フックが強制終了された。ターミナルで拒否など）ら、要求を閉じる
 
-## 画面側（`127.0.0.1:8766`）
+## 画面側（`127.0.0.1:47766`）
 
 ### 静的ファイル
 - `GET /` ほか: 画面のビルド結果（`dist/web/`）を配信する。`index.html` がなければ、動作確認用の簡易ページを返す

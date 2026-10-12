@@ -30,6 +30,11 @@
 - [x] T4-3 `.github/workflows/release.yml`（タグ・バージョン一致・テスト・リリースをドラフトで作成して公開）（AC-011-1・4）
 - [x] T4-4 利用者向けの README（AC-011-14。`README.md` と、zip の `README.txt`）
 
+## フェーズ 4b: ポートの設定ファイル（ADR 0019）
+- [x] T4b-1 `src/shared/config.mjs`: 設定ファイル（`%APPDATA%\coders-hub\config.json`）の読み込み、優先順位（環境変数 > ファイル > 既定）、既定を 47765 / 47766 に（AC-011-15〜19）
+- [x] T4b-2 テスト（`tests/config.test.mjs`）
+- [x] T4b-3 文書: README・`docs/setup.md`・`docs/release-readme.txt`・設計（architecture・security・api）の既定ポートと、ポートの変え方
+
 ## フェーズ 5: 確認
 - [x] T5-1 テスト（サブコマンド・アセット配信・設定の生成・自動起動）（AC-011-5〜11）
 - [x] T5-2 開発時の動作が変わらないこと（`npm test`・`npm start`）（AC-011-13）

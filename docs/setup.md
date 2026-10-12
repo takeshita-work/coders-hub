@@ -52,38 +52,44 @@ claude mcp add --scope user coders-hub -- node "D:/work/#tools/#web-app/coders-h
 
 1. `claude` を普通に起動する（開発用フラグも承認画面も要らない）。
 2. 最初のセッションの起動時に、チャネルサーバーが Hub 本体を自動で起動する（ADR 0004）。手動で起動する場合は `npm start`。
-3. ブラウザで `http://127.0.0.1:8766/` を開く。
+3. ブラウザで `http://127.0.0.1:47766/` を開く。
    - ビルドしていない場合は、受け取った一覧を JSON で表示する簡易ページが出る。
 
-Hub のポートは `127.0.0.1` の 8765（内部）と 8766（画面）。環境変数 `CODERS_HUB_INTERNAL_PORT`、`CODERS_HUB_UI_PORT` で変更できる。すべての `claude`、`hook.mjs`、`channel.mjs` で同じ値にそろえること。
+Hub のポートは `127.0.0.1` の 47765（内部）と 47766（画面）。変えるときは、設定ファイルを使う（4-1）。
 
-### 4-1. ポートを変える（他のアプリと重ならない番号にする）
+### 4-1. ポートを変える（設定ファイル）
 
-既定は 8765（内部）・8766（画面）。Web 開発でよく使われるポートと重なりにくく、Windows が自動で割り当てるポート（49152 以降）とも重ならない **47765（内部）・47766（画面）** にする例を示す。
+既定の **47765（内部）・47766（画面）** は、Web 開発でよく使われるポートと重なりにくく、Windows が自動で割り当てるポート（49152 以降）とも重ならない（ADR 0019）。他のアプリと重なったときだけ、変える。
 
-環境変数（ユーザー）に登録する。
+`%APPDATA%\coders-hub\config.json` を作る（フォルダがなければ作る）。
 
-```powershell
-[Environment]::SetEnvironmentVariable('CODERS_HUB_INTERNAL_PORT', '47765', 'User')
-[Environment]::SetEnvironmentVariable('CODERS_HUB_UI_PORT', '47766', 'User')
+```json
+{ "internalPort": 47765, "uiPort": 47766 }
 ```
 
-- **設定後に開いたターミナルから、`claude` と Hub を起動する**（起動済みのターミナル・`claude` には反映されない）
-- 次の 3 つが、すべて同じ値を読む必要がある。環境変数をユーザー環境変数に登録すれば、そろう
-  1. Hub 本体（`npm start`、または `claude` のチャネルサーバーによる自動起動）
-  2. フック（`hook.mjs`・`ask-hook.mjs`）
-  3. チャネルサーバー（`channel.mjs`）
-- **古いポートの Hub が動いていたら、先に止める**（2 つの Hub が並ばないように）。`netstat -ano | findstr 8765` で PID を調べ、`taskkill /F /PID <PID>`
-- 画面の URL が変わる（`http://127.0.0.1:47766/`）。折りたたみ・ソートの設定（localStorage）は、URL（ポート）ごとに分かれるので、引き継がれない
+```powershell
+# 例: ファイルを作って開く
+New-Item -ItemType Directory -Force "$env:APPDATA\coders-hub" | Out-Null
+notepad "$env:APPDATA\coders-hub\config.json"
+```
+
+- どちらか片方だけでもよい。書いていないほうは既定値になる
+- **優先順位: 環境変数 > 設定ファイル > 既定値**。環境変数 `CODERS_HUB_INTERNAL_PORT`・`CODERS_HUB_UI_PORT` は、一時的な上書き・テスト用
+- 設定ファイルのパスは、環境変数 `CODERS_HUB_CONFIG` で変えられる
+- Hub・フック（`hook.mjs`・`ask-hook.mjs`）・チャネルサーバー（`channel.mjs`）の 3 つが、同じファイルを読むので、値がずれない
+- 書き方が間違っているとき（JSON の誤り・ポートが 1〜65535 でない）は、Hub が、ファイルのパスを示して終了する
+- **変えたあとは、動いている Hub を止めてから、`claude` を起動し直す**。`netstat -ano | findstr 47765` で PID を調べ、`taskkill /F /PID <PID>`
+- 画面の URL が変わる。折りたたみ・ソートの設定（localStorage）は、URL（ポート）ごとに分かれるので、引き継がれない
 - **ポートは、一度決めたら変えない**（次の「アプリとしてインストール」は、URL に結びつくため）
 - ポートがほかのアプリに使われていると、Hub は「すでに使われています」と出して終了する（NFR-005）。その場合は、番号を変える
+- 旧版（8765 / 8766）から更新したとき: 新しい URL（`http://127.0.0.1:47766/`）を開く。旧ポートのままにするなら、設定ファイルに `8765` / `8766` を書く
 
 ### 4-2. アプリとしてインストールする（Chrome / Edge）
 
 画面を、アドレスバーのない専用のウィンドウで開く。ブラウザの機能だけで、アプリの追加はいらない。
 
 1. **Hub を起動しておく**（下の 4-3）
-2. Edge / Chrome で `http://127.0.0.1:47766/`（変えていなければ `8766`）を開く
+2. Edge / Chrome で `http://127.0.0.1:47766/`（設定ファイルで変えたときは、そのポート）を開く
 3. インストールする
    - Edge: 「…」→「アプリ」→「このサイトをアプリとしてインストール」
    - Chrome: 「⋮」→「キャストの保存と共有」→「ページをアプリとしてインストール」（または「ショートカットを作成」→「ウィンドウとして開く」にチェック）
@@ -111,7 +117,7 @@ Hub のポートは `127.0.0.1` の 8765（内部）と 8766（画面）。環�
 
 ```powershell
 npm start
-curl.exe -X POST http://127.0.0.1:8765/event -H "Content-Type: application/json" -d '{\"event\":\"UserPromptSubmit\",\"account\":\"acc\",\"input\":{\"session_id\":\"demo\",\"cwd\":\"D:/x\",\"prompt\":\"hi\"}}'
+curl.exe -X POST http://127.0.0.1:47765/event -H "Content-Type: application/json" -d '{\"event\":\"UserPromptSubmit\",\"account\":\"acc\",\"input\":{\"session_id\":\"demo\",\"cwd\":\"D:/x\",\"prompt\":\"hi\"}}'
 ```
 
 `event` を `PermissionRequest`、`Stop`、`SessionEnd` に変えると、表示が切り替わる。
@@ -127,7 +133,7 @@ curl.exe -X POST http://127.0.0.1:8765/event -H "Content-Type: application/json"
 
 ## 7. うまくいかないとき
 
-- 一覧に出ない: `http://127.0.0.1:8765/health` が `ok` を返すか確認する。`claude` で `/mcp` を開き、`coders-hub` が connected か確認する
+- 一覧に出ない: `http://127.0.0.1:47765/health` が `ok` を返すか確認する。`claude` で `/mcp` を開き、`coders-hub` が connected か確認する
 - ポートがすでに使われている: 別のプロセス（前の実験の仮 Hub など）が使っている。止めるか、ポートを変える
 - 状態が更新されない: 手順 3-1 のフックが、そのアカウントの `settings.json` に入っているか確認する
 - 許可要求・質問がダッシュボードに出ない: 操作モード（手順 8）で起動しているか確認する。一覧だけのモードでは、許可待ち・質問待ちの表示は出るが、応答の操作はできない

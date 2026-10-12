@@ -11,7 +11,7 @@
 ```
 claude ──(フック)────────► POST /event ──┐
 claude ◄─stdio─► channel.mjs ─ POST /poll ─┤► Hub 本体（メモリ） ══ WebSocket ══► React 画面
-                  （:8765、内部のみ）          （:8766 で画面と WebSocket を配信）
+                  （:47765、内部のみ）          （:47766 で画面と WebSocket を配信）
 ```
 
 ## 部品と責務
@@ -130,7 +130,7 @@ tests/
 配置先は、`docs/setup.md` の元の案（`C:\tools\coders-hub\`）と異なる。リポジトリ内に置き、起動用の設定から参照する形にする（未決）。
 
 ## 設定
-ポート・期限は `src/shared/config.mjs` が一か所で定義し、環境変数（`CODERS_HUB_INTERNAL_PORT`、`CODERS_HUB_UI_PORT`、`CODERS_HUB_POLL_TIMEOUT_MS`、`CODERS_HUB_EXPIRE_MS`）で上書きできる。hook / channel / hub が共通で読む。設定ファイルは使わない。
+ポート・期限は `src/shared/config.mjs` が一か所で定義し、環境変数（`CODERS_HUB_INTERNAL_PORT`、`CODERS_HUB_UI_PORT`、`CODERS_HUB_POLL_TIMEOUT_MS`、`CODERS_HUB_EXPIRE_MS`）で上書きできる。hook / channel / hub が共通で読む。設定ファイルは、ADR 0019 で追加した（ポートだけ。環境変数が優先）。
 
 ## リスク・検証事項
 実装の前に、次を検証する。

@@ -47,7 +47,7 @@
 
 ## API の追加
 
-### 画面用（`:8766`、ADR 0012 の保護あり）
+### 画面用（`:47766`、ADR 0012 の保護あり）
 `POST /api/sessions/:sessionId/instructions`
 - 本文: `{ "text": "..." }`
 - 応答: 202 `{ "id": "<指示の ID>", "status": "held" | "delivering" }`
@@ -65,7 +65,7 @@
 - `controllable`（boolean）
 - `pending`: 保留中の指示の `[{ id, createdAt, preview }]`（`preview` は先頭 40 文字。画面の再読み込み・再接続後の表示用）
 
-### 内部（`:8765`）
+### 内部（`:47765`）
 `POST /poll`
 - 要求に追加: `channel`（boolean。操作モードなら true）、`results`（`[{ id, ok, error? }]`。前回の応答で受けた指示の送信結果）
 - 応答: 指示があれば 200 `{ "instructions": [{ "id", "text" }] }`（常に 1 件）。なければ今までどおり約 30 秒後に 204

@@ -1,4 +1,4 @@
-// Hub 本体: 内部 API（127.0.0.1:8765）と、画面用の静的配信・WebSocket（:8766）。
+// Hub 本体: 内部 API（127.0.0.1:47765）と、画面用の静的配信・WebSocket（:47766）。
 // 状態管理は sessions.mjs に任せ、ここは入出力だけを担う。API の定義は specs/20-design/api/README.md。
 import http from 'node:http'
 import fs from 'node:fs'
