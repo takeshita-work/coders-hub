@@ -20,13 +20,13 @@
 - GitHub のリリースに、次のファイルが、個別の資産として添付される（zip にはしない。ADR 0022）
   - `coders-hub.exe`: 本体（バージョンなしの固定名。`releases/latest/download/coders-hub.exe` が、常に最新を指す）
   - `README.txt`: 日本語。使い方・設定・SmartScreen の開き方・更新・アンインストール
-  - `config.example.json`: 設定の見本。読み込まれない。使うときは `config.json` にコピーする（リリースに `config.json` は含めない。更新で、利用者の設定を上書きしないため）
+  - `config.example.jsonc`: 設定の見本（コメントつき）。読み込まれない。使うときは `config.json` という名前でコピーする（リリースに `config.json` は含めない。更新で、利用者の設定を上書きしないため）
   - `LICENSE`（MIT）、`THIRD_PARTY_NOTICES.txt`（exe に含まれる Node.js と npm パッケージのライセンス表示。画面と exe の両方）、`SHA256SUMS.txt`（`coders-hub.exe` の SHA-256）
 - リリースには、変更点（リリースノート）と、`coders-hub.exe` の SHA-256 が書かれる
 - 対象は Windows x64（NFR-001）
 
 ### 使い方（利用者）
-1. リリースから `coders-hub.exe` をダウンロードし、書き込めるフォルダに置く（置き場所は、移動しない）。設定を変えるときは、`config.example.json` を `config.json` にコピーする
+1. リリースから `coders-hub.exe` をダウンロードし、書き込めるフォルダに置く（置き場所は、移動しない）。設定を変えるときは、`config.example.jsonc` を `config.json` という名前でコピーする
 2. `coders-hub.exe setup` を実行すると、`claude` に入れる設定（フックと、チャネルサーバーの MCP 設定）が、この exe のパスを指す形で、表示される（操作モード用の設定も出す）
 3. **`coders-hub.exe` をダブルクリックして、Hub を起動する**（ウィンドウは出ない）。ログイン時に自動で起動したければ、利用者が、スタートアップ・タスク スケジューラに登録する
 4. `claude` を起動する（`--mcp-config` で、チャネルサーバーを付ける）。チャネルサーバーは、Hub を起動しない
@@ -61,7 +61,7 @@ AC の番号は、要件 REQ-011 に対応する。
 
 ### 配布物
 - AC-011-1: タグの push で、GitHub のリリースに、個別の資産（AC-011-2）が添付される。リリースに変更点がある
-- AC-011-2: 資産に、`coders-hub.exe`・`README.txt`・`config.example.json`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` が含まれる（`config.json` は含まれない）。`THIRD_PARTY_NOTICES.txt` に、Node.js と、束ねた npm パッケージ（画面と exe の両方）のライセンス文が入る
+- AC-011-2: 資産に、`coders-hub.exe`・`README.txt`・`config.example.jsonc`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` が含まれる（`config.json` は含まれない）。`THIRD_PARTY_NOTICES.txt` に、Node.js と、束ねた npm パッケージ（画面と exe の両方）のライセンス文が入る
 - AC-011-3: `SHA256SUMS.txt` の値が、資産の `coders-hub.exe` の SHA-256 と一致する
 - AC-011-4: `package.json` の `version` とタグが一致しないと、リリースが作られない。テストが失敗しても、作られない
 
@@ -81,6 +81,7 @@ AC の番号は、要件 REQ-011 に対応する。
 - AC-011-16: 環境変数（`CODERS_HUB_INTERNAL_PORT`・`CODERS_HUB_UI_PORT`）は、設定ファイルより優先する
 - AC-011-17: 設定ファイルがなければ、既定値（内部 47765・画面 47766）を使う
 - AC-011-18: 設定ファイルが壊れている・ポートが不正なときは、ファイルのパスを含むエラーにする（黙って既定値に戻さない）。フックは、失敗しても `claude` を妨げない
+- AC-011-27: 設定ファイルに、`//` の行コメントと `/* */` のブロックコメントを書ける（ADR 0023）。文字列の中の `//` はコメントではない。先頭の BOM は無視する。コメントだけのファイル・壊れた JSON は、エラー（AC-011-18）
 - AC-011-19: 設定ファイルのパスは、環境変数 `CODERS_HUB_CONFIG`、なければ `coders-hub.exe` と同じフォルダの `config.json`（ADR 0021）。開発時（`node` で起動）は、`CODERS_HUB_CONFIG` を指定したときだけ読む
 
 ### Hub の起動と終了（ADR 0020）

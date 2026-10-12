@@ -46,9 +46,13 @@
 - [ ] T4c-8 本物の `claude` で、GUI の exe を使ったフック・チャネルサーバー（AC-011-12 に含む）
 
 ## フェーズ 4d: 個別の資産での配布（ADR 0022）
-- [x] T4d-1 `scripts/package-release.mjs`: zip をやめ、`dist/release/` に、`coders-hub.exe`・`config.example.json`・`README.txt`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` を並べる（AC-011-2・3）
+- [x] T4d-1 `scripts/package-release.mjs`: zip をやめ、`dist/release/` に、`coders-hub.exe`・`config.example.jsonc`・`README.txt`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` を並べる（AC-011-2・3）
 - [x] T4d-2 `release.yml`: `dist/release/*` を添付する（AC-011-1）
-- [x] T4d-3 `config.example.json` を追加（読まれない見本。上書きの懸念を避ける）。README・`release-readme.txt`・`setup.md` の入手と更新の手順
+- [x] T4d-3 `config.example.jsonc` を追加（読まれない見本。上書きの懸念を避ける）。README・`release-readme.txt`・`setup.md` の入手と更新の手順
+
+## フェーズ 4e: 設定ファイルのコメント（ADR 0023）
+- [x] T4e-1 `stripJsonComments`（`//`・`/* */`・BOM）と、`config.json` の読み込み（AC-011-27）
+- [x] T4e-2 見本を `config.example.jsonc`（コメントつき）にする。説明用のキー（`_説明`）はやめる
 
 ## フェーズ 5: 確認
 - [x] T5-1 テスト（サブコマンド・アセット配信・設定の生成・自動起動）（AC-011-5〜11）

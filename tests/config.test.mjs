@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { configFilePath, loadConfig } from '../src/shared/config.mjs'
+import { configFilePath, loadConfig, stripJsonComments } from '../src/shared/config.mjs'
 
 const enoent = () => Object.assign(new Error('no such file'), { code: 'ENOENT' })
 // 配布版（exe）として、C:\Apps\coders-hub.exe の隣の config.json を読む想定（ADR 0021）
@@ -75,5 +75,37 @@ describe('loadConfig: 設定ファイル（config.json）', () => {
     let read = false
     loadConfig({}, { sea: false, readFile: () => { read = true; return '{}' } })
     assert.equal(read, false)
+  })
+})
+
+// AC-011-27（ADR 0023）: config.json にコメントを書ける
+describe('設定ファイルのコメント（JSONC）', () => {
+  it('AC-011-27: // と /* */ のコメントを無視して読む。BOM つきでも読める', () => {
+    const text = String.fromCharCode(0xfeff) + '// 説明\n{\n  // 内部\n  "internalPort": 40001, /* 画面 */ "uiPort": 40002\n}\n'
+    const c = loadConfig({}, withFile(text))
+    assert.equal(c.internalPort, 40001)
+    assert.equal(c.uiPort, 40002)
+  })
+
+  it('AC-011-27: 文字列の中の // や /* は、コメントとして扱わない', () => {
+    const text = String.raw`{ "a": "http://x/*y*/", "b": "q\"//z" } // end`
+    assert.deepEqual(JSON.parse(stripJsonComments(text)), { a: 'http://x/*y*/', b: 'q"//z' })
+  })
+
+  it('AC-011-27: コメントは空白に置き換える（行数が変わらない）。閉じていないブロックコメントも、例外にしない', () => {
+    assert.equal(stripJsonComments('1 /* a\nb */ 2').split('\n').length, 2)
+    assert.equal(stripJsonComments('{} /* 閉じていない').trim(), '{}')
+  })
+
+  it('AC-011-27: コメントだけのファイル・壊れた JSON は、これまでどおりエラー', () => {
+    assert.throws(() => loadConfig({}, withFile('// だけ')), /JSON として読めません/)
+    assert.throws(() => loadConfig({}, withFile('{ "uiPort": // 値がない\n }')), /JSON として読めません/)
+  })
+
+  it('配布する見本（config.example.jsonc）を config.json にコピーすると、既定値のまま読める', async () => {
+    const fs = await import('node:fs')
+    const text = fs.readFileSync(new URL('../config.example.jsonc', import.meta.url), 'utf8')
+    const c = loadConfig({}, withFile(text))
+    assert.deepEqual([c.internalPort, c.uiPort], [47765, 47766])
   })
 })

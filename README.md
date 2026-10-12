@@ -20,7 +20,7 @@
 
 ## 入れ方（配布版。Node.js は要りません）
 
-1. [リリース](https://github.com/takeshita-work/coders-hub/releases)から、`coders-hub.exe` をダウンロードします（zip ではなく、exe そのものです）。書き込めるフォルダ（`Program Files` 以外）に置きます（置いたあとは、移動しないでください。設定に、この exe のパスを書きます）。同じ場所に、`README.txt`・`config.example.json`・`SHA256SUMS.txt` などもあります。ブラウザが「一般的にダウンロードされていない」と警告したときは、「保持する」を選びます。
+1. [リリース](https://github.com/takeshita-work/coders-hub/releases)から、`coders-hub.exe` をダウンロードします（zip ではなく、exe そのものです）。書き込めるフォルダ（`Program Files` 以外）に置きます（置いたあとは、移動しないでください。設定に、この exe のパスを書きます）。同じ場所に、`README.txt`・`config.example.jsonc`・`SHA256SUMS.txt` などもあります。ブラウザが「一般的にダウンロードされていない」と警告したときは、「保持する」を選びます。
 2. Windows の SmartScreen が警告したときは、「詳細情報」→「実行」を選びます（この exe は署名していません）。SHA-256 は、`SHA256SUMS.txt` と、次のコマンドの結果を見比べて確認できます。
    ```powershell
    Get-FileHash .\coders-hub.exe -Algorithm SHA256

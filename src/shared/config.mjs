@@ -1,6 +1,6 @@
 // 設定の置き場所（ADR 0019）。優先順位: 環境変数 > 設定ファイル（config.json）> 既定値。
 // hook.mjs / channel.mjs / hub.mjs が共通で読む。3 つが同じファイルを読むので、ポートがずれない。
-// 設定ファイル: 配布版は coders-hub.exe と同じフォルダの config.json（ADR 0021）。環境変数 CODERS_HUB_CONFIG でパスを変えられる。
+// 設定ファイル: 配布版は coders-hub.exe と同じフォルダの config.json（ADR 0021。コメントを書ける: ADR 0023）。環境変数 CODERS_HUB_CONFIG でパスを変えられる。
 // 開発時（node で起動）は、CODERS_HUB_CONFIG を指定したときだけ読む。
 // 設定ファイルで変えられるのは、ポート（internalPort・uiPort）だけ。
 
@@ -29,6 +29,35 @@ const intFromEnv = (env, name, fallback) => {
 export const configFilePath = (env = process.env, { sea = isSea(), execPath = process.execPath } = {}) =>
   env.CODERS_HUB_CONFIG || (sea ? path.join(path.dirname(execPath), 'config.json') : null)
 
+// JSONC: // の行コメントと /* */ のブロックコメントを許す（ADR 0023）。文字列の中の // などはそのまま。
+// コメントは空白に置き換える（改行は残す）ので、JSON.parse のエラー位置がずれない。先頭の BOM（メモ帳など）は取り除く
+export const stripJsonComments = (text) => {
+  const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  let out = ''
+  let i = 0
+  while (i < src.length) {
+    const c = src[i]
+    const next = src[i + 1]
+    if (c === '"') {
+      let j = i + 1
+      while (j < src.length && src[j] !== '"') j += src[j] === '\\' ? 2 : 1
+      out += src.slice(i, j + 1)
+      i = j + 1
+    } else if (c === '/' && next === '/') {
+      while (i < src.length && src[i] !== '\n') i += 1
+    } else if (c === '/' && next === '*') {
+      const end = src.indexOf('*/', i + 2)
+      const stop = end === -1 ? src.length : end + 2
+      out += src.slice(i, stop).replace(/[^\r\n]/g, ' ')
+      i = stop
+    } else {
+      out += c
+      i += 1
+    }
+  }
+  return out
+}
+
 // ファイルがなければ {}。壊れているときは、ファイルのパスを入れたエラーにする（黙って既定値に戻すと、ポートがずれる）
 const readConfigFile = (file, readFile) => {
   if (!file) return {}
@@ -41,7 +70,7 @@ const readConfigFile = (file, readFile) => {
   }
   let json
   try {
-    json = JSON.parse(text)
+    json = JSON.parse(stripJsonComments(text))
   } catch (e) {
     throw new Error(`設定ファイルが JSON として読めません: ${file}（${e.message}）`)
   }

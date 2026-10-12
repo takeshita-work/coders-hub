@@ -91,7 +91,7 @@ jobs:
           cat > release-notes.md <<NOTES
           ## Coders Hub ${GITHUB_REF_NAME}
 
-          Windows x64 用です。\`coders-hub.exe\` をダウンロードして、書き込めるフォルダに置きます（Node.js は要りません）。手順は、\`README.txt\` と、[README](https://github.com/${GITHUB_REPOSITORY}#readme) にあります。設定を変えるときは、\`config.example.json\` を \`config.json\` にコピーして、exe と同じフォルダに置きます。
+          Windows x64 用です。\`coders-hub.exe\` をダウンロードして、書き込めるフォルダに置きます（Node.js は要りません）。手順は、\`README.txt\` と、[README](https://github.com/${GITHUB_REPOSITORY}#readme) にあります。設定を変えるときは、\`config.example.jsonc\` を \`config.json\` という名前でコピーして、exe と同じフォルダに置きます。
 
           - 署名していないため、SmartScreen が警告することがあります。「詳細情報」→「実行」で開けます。
           - SHA-256（coders-hub.exe）:

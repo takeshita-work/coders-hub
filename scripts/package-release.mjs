@@ -1,6 +1,6 @@
 // 配布物を作る（機能 007、ADR 0018・0022）。zip にはせず、リリースに個別の資産として添付するファイルを、dist/release/ に並べる。
 //   npm run build:exe && npm run package
-// ファイル: coders-hub.exe（バージョンなしの固定名）、config.example.json（設定の見本。読まれない）、README.txt、LICENSE、
+// ファイル: coders-hub.exe（バージョンなしの固定名）、config.example.jsonc（設定の見本。読まれない）、README.txt、LICENSE、
 //   THIRD_PARTY_NOTICES.txt（Node.js と束ねたパッケージのライセンス表示）、SHA256SUMS.txt（exe の SHA-256）
 import { build } from 'esbuild'
 import crypto from 'node:crypto'
@@ -61,7 +61,7 @@ const sha256 = (file) => crypto.createHash('sha256').update(fs.readFileSync(file
 
 fs.copyFileSync(exe, path.join(outDir, 'coders-hub.exe'))
 fs.writeFileSync(path.join(outDir, 'README.txt'), fs.readFileSync(path.join(root, 'docs/release-readme.txt'), 'utf8').replaceAll('__VERSION__', pkg.version).replace(/\r?\n/g, '\r\n'))
-for (const name of ['LICENSE', 'config.example.json']) {
+for (const name of ['LICENSE', 'config.example.jsonc']) {
   const file = path.join(root, name)
   if (!fs.existsSync(file)) throw new Error(`${name} がありません（配布物に入れます）`)
   fs.copyFileSync(file, path.join(outDir, name))

@@ -36,3 +36,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0020 | Hub の起動をチャネルサーバーから切り離し、exe のダブルクリックでウィンドウなしに起動する | Accepted |
 | 0021 | 設定ファイル（config.json）は、coders-hub.exe と同じフォルダに置く | Accepted |
 | 0022 | 配布物は、zip にせず、exe などを個別の資産としてリリースに添付する | Accepted |
+| 0023 | 設定ファイル（config.json）には、JSONC のコメントを書けるようにする | Accepted |
