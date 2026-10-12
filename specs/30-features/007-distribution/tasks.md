@@ -60,6 +60,13 @@
 - [x] T4f-3 文書: README・`docs/setup.md`・`docs/release-readme.txt`（ダブルクリックと `start` の使い分け）
 - [x] T4f-4 ビルドした exe のダブルクリック相当で、案内のウィンドウ（Windows Terminal）が出て、Hub が 1 つだけ動き、2 回目は「すでに起動しています」になることを確認。cmd が `start` を終えるまで待たないと、親の exe の終了で案内も消えるため、待つようにした。Enter キーでの閉じ方は、画面での目視は未確認
 
+## フェーズ 4g: 案内のメニュー（ADR 0025）
+- [x] T4g-1 `setup --write`（`src/setup/render.mjs`、`src/cli/main.mjs`）（AC-011-30）
+- [x] T4g-2 メニュー（`guide.mjs` の `guideScript`、`guide.ps1`、`guide.cmd`）（AC-011-29）
+- [x] T4g-3 テスト（`tests/guide.test.mjs`、`tests/cli.test.mjs`）。メニューの操作（1・2・不正な入力・空で終了）を、ビルドした exe で、標準入力から確認
+- [x] T4g-4 文書: README・`docs/setup.md`・`docs/release-readme.txt`
+- [ ] T4g-5 実機（目視）: メニューの表示、`3` のメモ帳、スクロール（ユーザーの確認待ち）
+
 ## フェーズ 5: 確認
 - [x] T5-1 テスト（サブコマンド・アセット配信・設定の生成・自動起動）（AC-011-5〜11）
 - [x] T5-2 開発時の動作が変わらないこと（`npm test`・`npm start`）（AC-011-13）

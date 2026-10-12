@@ -25,13 +25,23 @@
    ```powershell
    Get-FileHash .\coders-hub.exe -Algorithm SHA256
    ```
-3. 設定を表示します。`coders-hub.exe` はウィンドウのない形式なので、出力は `| more` で受け取ります。
+3. 設定を用意します。`coders-hub.exe` をダブルクリックすると出るメニューで、`1`（設定を表示）または `2`（設定をファイルに保存）を選びます。ターミナルを使う場合は、`coders-hub.exe` がウィンドウのない形式なので、出力を `| more` で受け取ります。
    ```powershell
    .\coders-hub.exe setup | more
    ```
-   表示された内容を、claude に入れます。
+   表示された内容、または保存した `coders-hub-hooks.json` の内容を、claude に入れます。
    - **1. フック設定**: 使う claude の `settings.json`（アカウントごと）に追加します
    - **2. 一覧だけのモード / 3. 操作モード**: JSON を、`coders-hub.json`・`coders-hub-control.json` などの名前で保存します
+
+   メニューの `2`（または `coders-hub.exe setup --write`）は、次の3つのファイルを、exe と同じフォルダに保存します（同じ名前は上書きします）。
+
+   | ファイル | 中身 | 使い方 |
+   |---|---|---|
+   | `coders-hub-hooks.json` | フックの設定 | 使う claude の `settings.json` の `"hooks"` に、内容を追加します（自動では書き換えません） |
+   | `coders-hub.json` | 一覧だけのモードの MCP 設定 | `claude --mcp-config coders-hub.json` |
+   | `coders-hub-control.json` | 操作モードの MCP 設定 | `claude --mcp-config coders-hub-control.json --dangerously-load-development-channels server:coders-hub` |
+
+   3つとも、exe のパスを含みます。exe を移動したら、保存し直してください。
 
 ## 使い方
 

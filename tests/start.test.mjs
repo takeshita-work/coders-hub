@@ -9,43 +9,12 @@ import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { main } from '../src/cli/main.mjs'
 import { MAX_LOG_BYTES, hubLogPath, openHubLog, startHub, waitForHub } from '../src/cli/start.mjs'
-import { guideText, showGuideWindow } from '../src/cli/guide.mjs'
 import { SUBSYSTEM_CONSOLE, SUBSYSTEM_GUI, readSubsystem, setSubsystem } from '../scripts/pe-subsystem.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'coders-hub-start-'))
-
-describe('引数なし・start（AC-011-20, 28）', () => {
-  const config = { host: '127.0.0.1', internalPort: 1, uiPort: 2 }
-  const deps = (over = {}) => ({ exePath: null, staticAssets: null, waitReady: async () => true, ...over })
-
-  it('AC-011-28: 引数なし（ダブルクリック）は、Hub を起動して、案内を出す', async () => {
-    const shown = []
-    await main([], deps({ start: async () => ({ started: true, config }), guide: (t) => shown.push(t) }))
-    assert.equal(shown.length, 1)
-    assert.match(shown[0], /Hub を起動しました/)
-    assert.match(shown[0], /http:\/\/127\.0\.0\.1:2\//)
-  })
-
-  it('AC-011-20: start は、Hub を起動するだけで、案内を出さない（スタートアップ・タスク スケジューラ用）', async () => {
-    let started = 0
-    const shown = []
-    await main(['start'], deps({ start: async () => { started += 1; return { started: true, config } }, guide: (t) => shown.push(t) }))
-    assert.equal(started, 1)
-    assert.equal(shown.length, 0)
-  })
-
-  it('AC-011-28: すでに動いているときは、起動の待ちをせず、その旨の案内を出す', async () => {
-    const shown = []
-    let waited = 0
-    await main([], deps({ start: async () => ({ started: false, reason: 'running', config }), waitReady: async () => { waited += 1; return true }, guide: (t) => shown.push(t) }))
-    assert.equal(waited, 0)
-    assert.match(shown[0], /すでに起動しています/)
-  })
-})
 
 describe('startHub', () => {
   const config = { host: '127.0.0.1', internalPort: 1 }
@@ -215,98 +184,5 @@ describe('waitForHub', () => {
     let n = 0
     assert.equal(await waitForHub({}, { up: async () => ++n > 3, wait: noWait }), true)
     assert.equal(await waitForHub({}, { up: async () => false, wait: noWait, timeoutMs: 500, intervalMs: 100 }), false)
-  })
-})
-
-// AC-011-28（ADR 0024）: ダブルクリックしたときの案内
-describe('案内（guideText）', () => {
-  const config = { uiPort: 47766, internalPort: 47765 }
-  const log = 'C:\L\hub.log'
-
-  it('起動した: 画面の URL・終了の方法・ログ・Enter で閉じる旨を出す', () => {
-    const t = guideText({ started: true, ready: true, config, logFile: log, version: '1.2.3' })
-    assert.match(t, /Coders Hub 1\.2\.3/)
-    assert.match(t, /Hub を起動しました。/)
-    assert.match(t, /http:\/\/127\.0\.0\.1:47766\//)
-    assert.match(t, /内部 API: http:\/\/127\.0\.0\.1:47765\/$/m)
-    assert.doesNotMatch(t, /フック・チャネルサーバー用/)
-    assert.match(t, /Hub を終了するには、アプリにアクセスし終了してください/)
-    assert.match(t, /閉じても、Hub は動き続けます/)
-    assert.match(t, /ログ: C:\L\hub\.log/)
-    assert.match(t, /Enter キーを押すと、このウィンドウを閉じます/)
-  })
-
-  it('すでに起動している・応答が遅い', () => {
-    assert.match(guideText({ started: false, reason: 'running', config }), /すでに起動しています/)
-    assert.match(guideText({ started: true, ready: false, config, logFile: log }), /まだ応答がありません/)
-  })
-
-  it('設定ファイルの誤り: 理由とログを出し、URL と終了の説明は出さない', () => {
-    const t = guideText({ started: false, reason: 'config', error: '設定ファイルが JSON として読めません: C:\A\config.json', logFile: log })
-    assert.match(t, /起動できませんでした/)
-    assert.match(t, /config\.json/)
-    assert.doesNotMatch(t, /http:\/\//)
-    assert.doesNotMatch(t, /Hub を終了するには/)
-    assert.match(t, /ログ:/)
-  })
-})
-
-describe('案内のウィンドウ（showGuideWindow）', () => {
-  // 偽の子プロセス: イベントを登録すると、すぐに知らせる（cmd /c start は、案内を開いたらすぐ終了する）
-  const fakeChild = (events = {}) => ({ unref() {}, on(name, fn) { if (events[name] !== undefined) setImmediate(() => fn(events[name])) } })
-
-  it('AC-011-28: 本文を UTF-8 のファイルに書き、バッチを cmd の start で開く。バッチは Enter（set /p）を待って閉じる', async () => {
-    const dir = tmp()
-    try {
-      let call
-      const ok = await showGuideWindow('本文\n二行目', { dir, spawnFn: (cmd, args, opts) => { call = { cmd, args, opts }; return fakeChild({ exit: 0 }) } })
-      assert.equal(ok, true)
-      assert.equal(call.cmd, 'cmd.exe')
-      assert.deepEqual(call.args.slice(0, 3), ['/c', 'start', 'Coders Hub'])
-      assert.equal(call.args[3], path.join(dir, 'guide.cmd'))
-      assert.equal(call.opts.windowsHide, true, 'cmd 自体は隠す')
-      assert.equal(fs.readFileSync(path.join(dir, 'guide.txt'), 'utf8'), '本文\r\n二行目')
-      const bat = fs.readFileSync(path.join(dir, 'guide.cmd'), 'utf8').split('\r\n')
-      const show = bat.find((l) => l.includes('powershell.exe'))
-      assert.ok(show, '本文は PowerShell で表示する（cmd の type は、chcp 65001 で末尾の文字が化けるため使わない）')
-      assert.ok(!bat.some((l) => /^type /.test(l) || /chcp/.test(l)), 'type・chcp は使わない')
-      assert.match(show, /Get-Content -LiteralPath '%~dp0guide\.txt' -Encoding UTF8/)
-      assert.match(show, /Read-Host/, 'Enter を待つ')
-      assert.ok(!/-EncodedCommand|-enc /i.test(show), 'エンコードしたコマンドは使わない（誤検知を避ける）')
-      assert.equal(bat.filter(Boolean).at(-1), 'exit', 'Enter のあと、ウィンドウを閉じる')
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('AC-011-28: cmd が案内を開き終える（終了する）まで待ってから返す。待たずに exe が終了すると、案内も消える', async () => {
-    const dir = tmp()
-    try {
-      let exitHandler = null
-      let resolved = false
-      const child = { unref() {}, on(name, fn) { if (name === 'exit') exitHandler = fn } }
-      const p = showGuideWindow('x', { dir, spawnFn: () => child }).then((v) => { resolved = true; return v })
-      await new Promise((r) => setTimeout(r, 30))
-      assert.equal(resolved, false, 'cmd がまだ動いている間は待つ')
-      exitHandler(0)
-      assert.equal(await p, true)
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('cmd を起動できない（error）ときは false。応答がなくても、時間切れで返す', async () => {
-    const dir = tmp()
-    try {
-      assert.equal(await showGuideWindow('x', { dir, spawnFn: () => fakeChild({ error: new Error('ENOENT') }) }), false)
-      assert.equal(await showGuideWindow('x', { dir, timeoutMs: 20, spawnFn: () => ({ unref() {}, on() {} }) }), true)
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('置き場所がない・書けないときは false（例外にしない）', async () => {
-    assert.equal(await showGuideWindow('x', { dir: null }), false)
-    assert.equal(await showGuideWindow('x', { dir: 'd', fsImpl: { mkdirSync() { throw new Error('denied') } } }), false)
   })
 })

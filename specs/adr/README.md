@@ -38,3 +38,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0022 | 配布物は、zip にせず、exe などを個別の資産としてリリースに添付する | Accepted |
 | 0023 | 設定ファイル（config.json）には、JSONC のコメントを書けるようにする | Accepted |
 | 0024 | exe のダブルクリックでは、案内のウィンドウ（URL・終了の方法）を出し、Enter で閉じる | Accepted |
+| 0025 | 案内のウィンドウに、設定の表示・保存とログを開くメニューを付ける | Accepted |

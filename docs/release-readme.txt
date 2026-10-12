@@ -11,7 +11,8 @@ Coders Hub __VERSION__（Windows x64）
    「詳細情報」→「実行」を選びます（この exe は署名していません）。
    不安な場合は、SHA256SUMS.txt の値と、次のコマンドの結果を、見比べてください。
      Get-FileHash .\coders-hub.exe -Algorithm SHA256
-3. 設定を表示します。
+3. 設定を用意します。coders-hub.exe をダブルクリックすると出るメニューで、1（設定を表示）または 2（設定をファイルに保存）を選びます。
+   ターミナルを使う場合は、次のようにします。
      .\coders-hub.exe setup | more
    表示された内容を、claude に入れます。
    （coders-hub.exe は、ウィンドウのない形式です。表示は「coders-hub.exe setup | more」のように、パイプで受け取ります）

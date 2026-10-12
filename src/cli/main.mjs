@@ -15,10 +15,10 @@ import { runAskHook } from '../hook/ask-hook.mjs'
 import { runChannel } from '../channel/channel.mjs'
 import { runHook } from '../hook/hook.mjs'
 import { runHub } from '../hub/main.mjs'
-import { renderSetup } from '../setup/render.mjs'
+import { renderSetup, writeSetupFiles } from '../setup/render.mjs'
 import { isDirectRun } from '../shared/entry.mjs'
 import { loadSeaAssets } from './sea-assets.mjs'
-import { guideText, showGuideWindow } from './guide.mjs'
+import { guideScript, guideText, showGuideWindow } from './guide.mjs'
 import { hubLogPath, startHub, waitForHub } from './start.mjs'
 import { VERSION } from './version.mjs'
 
@@ -29,6 +29,7 @@ export const USAGE = `Coders Hub ${VERSION}
   start                    Hub をウィンドウなしで起動する（案内なし。スタートアップ用）
   hub                      Hub 本体を前面で動かす（確認・不具合調査用）
   setup                    claude に入れる設定（フック・MCP）を表示する
+  setup --write [--out 先]  設定をファイルに保存する（既定: exe と同じフォルダ）
   version                  バージョンを表示する
   hook / ask-hook          フック（claude が起動する）
   channel [--channel]      チャネルサーバー（claude が起動する。--channel で操作モード）
@@ -52,8 +53,13 @@ export const main = async (
     staticAssets = loadSeaAssets(),
     start = startHub,
     waitReady = waitForHub,
-    // 案内の表示。配布版（ダブルクリック）は別のコンソールのウィンドウ。開発時（node）は、そのターミナルに出す
-    guide = (text) => (isSea() ? showGuideWindow(text, { dir: logDir() }) : out(text)),
+    // 案内の表示。配布版（ダブルクリック）は、メニューつきで、別のコンソールのウィンドウに出す（ADR 0025）。開発時（node）は、そのターミナルに案内だけを出す
+    guide = (result, ready) => {
+      const logFile = hubLogPath()
+      if (!isSea()) return out(guideText({ ...result, ready, logFile }))
+      const text = guideText({ ...result, ready, logFile, menu: { saveDir: path.dirname(process.execPath) } })
+      return showGuideWindow(text, { dir: logDir(), script: guideScript({ exePath: process.execPath, logFile }) })
+    },
   } = {},
 ) => {
   const [command, ...rest] = argv
@@ -61,14 +67,26 @@ export const main = async (
     case undefined: {
       const result = await start()
       const ready = result.started ? await waitReady(result.config) : undefined
-      return guide(guideText({ ...result, ready, logFile: hubLogPath() }))
+      return guide(result, ready)
     }
     case 'start': return start()
     case 'hub': return runHub({ staticAssets })
     case 'hook': return runHook()
     case 'ask-hook': return runAskHook()
     case 'channel': return runChannel(rest)
-    case 'setup': return out(exePath ? renderSetup({ exePath }) : renderSetup({ paths: devPaths() }))
+    case 'setup': {
+      if (!rest.includes('--write')) return out(exePath ? renderSetup({ exePath }) : renderSetup({ paths: devPaths() }))
+      // 保存先: --out で指定。なければ exe と同じフォルダ（開発時は、いまのフォルダ）
+      const at = rest.indexOf('--out')
+      const dir = at >= 0 && rest[at + 1] ? path.resolve(rest[at + 1]) : exePath ? path.dirname(exePath) : process.cwd()
+      try {
+        return out(writeSetupFiles({ dir, exePath, paths: exePath ? {} : devPaths() }).join('\n'))
+      } catch (e) {
+        out(`設定を保存できませんでした: ${dir}\n${e.message}`)
+        process.exitCode = 1
+        return undefined
+      }
+    }
     case 'version': case '--version': case '-v': return out(VERSION)
     case 'help': case '--help': case '-h': return out(USAGE)
     default:

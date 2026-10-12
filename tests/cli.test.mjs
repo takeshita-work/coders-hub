@@ -2,6 +2,9 @@
 // AC-011-5〜11, 13
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createHub } from '../src/hub/hub.mjs'
 import { main, USAGE } from '../src/cli/main.mjs'
@@ -142,5 +145,77 @@ describe('直接実行の判定', () => {
     assert.equal(isDirectRun('file:///C:/__coders_hub_bundle__/main.mjs'), false)
     assert.equal(isDirectRun('file:///C:/other/file.mjs'), false)
     assert.equal(isDirectRun(pathToFileURL(process.argv[1]).href), true, '直接実行したファイルの URL なら true')
+  })
+})
+
+// AC-011-30（ADR 0025）: setup --write
+describe('設定のファイル保存（setup --write。AC-011-30）', () => {
+  const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'coders-hub-setup-'))
+
+  it('exe と同じフォルダに、フック・一覧だけ・操作モードの 3 つの JSON を保存し、使い方を表示する', async () => {
+    const dir = tmp()
+    try {
+      const exePath = path.join(dir, 'coders-hub.exe')
+      const { lines, out } = collect()
+      await main(['setup', '--write'], { out, exePath, staticAssets: null })
+      const hooks = JSON.parse(fs.readFileSync(path.join(dir, 'coders-hub-hooks.json'), 'utf8'))
+      const list = JSON.parse(fs.readFileSync(path.join(dir, 'coders-hub.json'), 'utf8'))
+      const control = JSON.parse(fs.readFileSync(path.join(dir, 'coders-hub-control.json'), 'utf8'))
+      const exe = exePath.replaceAll('\\', '/')
+      assert.ok(hooks.hooks.Stop[0].hooks[0].command.includes(`${exe}"`) || hooks.hooks.Stop[0].hooks[0].command.includes(exe))
+      assert.deepEqual(list.mcpServers['coders-hub'], { command: exe, args: ['channel'] })
+      assert.deepEqual(control.mcpServers['coders-hub'], { command: exe, args: ['channel', '--channel'] })
+      const text = lines.join('\n')
+      assert.match(text, /保存しました/)
+      assert.ok(text.includes(path.join(dir, 'coders-hub-control.json')))
+      assert.match(text, /--dangerously-load-development-channels server:coders-hub/)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('--out で保存先を指定できる。同じ名前のファイルは上書きする', async () => {
+    const dir = tmp()
+    try {
+      const target = path.join(dir, 'out')
+      fs.mkdirSync(target)
+      fs.writeFileSync(path.join(target, 'coders-hub.json'), 'old')
+      await main(['setup', '--write', '--out', target], { out: () => {}, exePath: EXE, staticAssets: null })
+      assert.ok(JSON.parse(fs.readFileSync(path.join(target, 'coders-hub.json'), 'utf8')).mcpServers)
+      assert.equal(fs.existsSync(path.join(target, 'coders-hub-hooks.json')), true)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('保存できないときは、理由を表示して、終了コード 1', async () => {
+    const dir = tmp()
+    try {
+      const blocker = path.join(dir, 'file')
+      fs.writeFileSync(blocker, 'x')
+      const { lines, out } = collect()
+      const before = process.exitCode
+      await main(['setup', '--write', '--out', path.join(blocker, 'sub')], { out, exePath: EXE, staticAssets: null })
+      assert.match(lines.join('\n'), /設定を保存できませんでした/)
+      assert.equal(process.exitCode, 1)
+      process.exitCode = before
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('--write なしの setup は、これまでどおり表示だけ（ファイルを作らない）', async () => {
+    const dir = tmp()
+    const cwd = process.cwd()
+    try {
+      process.chdir(dir)
+      const { lines, out } = collect()
+      await main(['setup'], { out, exePath: EXE, staticAssets: null })
+      assert.match(lines[0], /# 1\. settings\.json/)
+      assert.deepEqual(fs.readdirSync(dir), [])
+    } finally {
+      process.chdir(cwd)
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
