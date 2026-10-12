@@ -184,6 +184,12 @@ describe('詳細（AC-UI-19〜27）', () => {
     assert.doesNotMatch(waiting.slice(waiting.indexOf('status-line')), /class="state/)
   })
 
+  it('AC-UI-36: resume した会話の状態の行に、「再開（元 …）」が出る。resume していなければ出ない', () => {
+    const resumed = open({ resumedFrom: 'b5e2c071-0000-0000-0000-000000000000' })
+    assert.match(text(resumed.slice(resumed.indexOf('status-line'))), /d96bc4ce 再開（元 b5e2c071） 1分/)
+    assert.doesNotMatch(open(), /再開（元/)
+  })
+
   it('AC-UI-25: メッセージ入力欄は 1 行で、プレースホルダ付き。送信ボタンはない', () => {
     const html = open()
     assert.match(html, /<textarea[^>]*rows="1"[^>]*placeholder="メッセージを入力"/)
@@ -272,5 +278,46 @@ describe('空の状態と接続', () => {
 describe('通知（AC-UI-29）', () => {
   it('通知・音の仕組みを含まない', () => {
     assert.doesNotMatch(render(stateOf([s('p', 'permission', 1)])), /<audio|Notification/)
+  })
+})
+
+describe('メニュー（AC-UI-32, 33, 35）', () => {
+  const state = stateOf([s('c', 'working', 1)], { version: '1.2.3' })
+  const notify = { settings: { mute: false, volume: 60, blink: true, alertSec: 15 }, onSettings() {}, onPreview() {} }
+
+  it('AC-UI-32: ヘッダーに、フィルター・ソートとは別の、メニューのボタンがある。閉じているときは、パネルが出ない', () => {
+    const html = render(state)
+    assert.match(html, /aria-label="フィルター・ソート"/)
+    assert.match(html, /aria-label="メニュー"/)
+    assert.doesNotMatch(html, /data-panel="menu"/)
+  })
+
+  it('AC-UI-33: メニューを開くと、バージョン・音量・画面の点滅・続ける時間・Hub の終了が出る。フィルター・ソートのパネルには、終了がない', () => {
+    const html = render(state, { menu: true }, { notify })
+    assert.match(html, /data-panel="menu"/)
+    assert.match(text(html), /バージョン 1\.2\.3/)
+    assert.match(text(html), /音量/)
+    assert.match(text(html), /画面の点滅/)
+    assert.match(text(html), /続ける時間/)
+    assert.match(text(html), /Hub 終了…/)
+    const filter = render(state, { opts: true })
+    assert.doesNotMatch(text(filter), /終了…/)
+    assert.doesNotMatch(filter, /data-panel="menu"/)
+  })
+
+  it('バージョンがまだ届いていないときは、「—」', () => {
+    assert.match(text(render(stateOf([s('c', 'working', 1)]), { menu: true }, { notify })), /バージョン —/)
+  })
+
+  it('メニューのボタンは、開いているとき aria-expanded が true。終了のモーダルは、quit のときだけ出る', () => {
+    assert.match(render(state, { menu: true }, { notify }), /aria-expanded="true" aria-label="メニュー"/)
+    assert.doesNotMatch(render(state), /role="dialog"/)
+    const html = render(state, { quit: true })
+    assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="quit-title"/)
+    assert.match(text(html), /Hub を終了しますか？ やめる 終了する/)
+  })
+
+  it('点滅の重ね（#flash）が、あり、操作を妨げない（aria-hidden）', () => {
+    assert.match(render(state), /<div id="flash" aria-hidden="true"><\/div>/)
   })
 })

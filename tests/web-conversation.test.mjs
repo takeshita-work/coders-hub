@@ -301,3 +301,188 @@ describe('スクロール（機能 006 の AC-UI-23 を会話にも）', () => {
     assert.equal(sc.top, 2000, '一番下の近くにいるときは、一番下へ')
   })
 })
+
+// ---- ツールの行・グループ・時刻順の並び（AC-007-4, 22, 23, 25。ADR 0029）----
+const { ToolGroup, ToolRow } = await import('../src/web/components.mjs')
+const { groupTools, mergeTimeline, runningToolIds, summarizeToolGroup, toolHasMore, toolStatus } = await import('../src/web/logic.mjs')
+
+const toolMsg = (id, name, extra = {}, result = 'ok', at = 1_000) => ({ id, role: 'tool', at, tool: { name, result, ...extra } })
+
+describe('ツールの行（AC-007-4）', () => {
+  const tool = (extra = {}, result = 'ok') => toolMsg('1:0', 'Bash', { summary: 'npm test', detail: 'npm test\n# 説明', ...extra }, result, new Date(2026, 9, 12, 0, 20).getTime())
+  const out = (message, props = {}) => renderToStaticMarkup(h(ConversationMessage, { message, ...props }))
+
+  it('閉じた 1 行: ツール名・要点・結果・時刻。全文が要点と違うときは、開閉できる（全文だけを出す）', () => {
+    const html = out(tool())
+    assert.match(html, /<details class="tool-line tool-ok" data-conversation="tool">/)
+    assert.match(text(html), /Bash npm test 成功 00:20/)
+    assert.match(html, /<div class="tool-detail"><pre class="pre">npm test\n# 説明<\/pre><\/div>/)
+  })
+
+  it('全文が要点と同じ行・要点がない行は、開閉しない（矢印も出ない）', () => {
+    for (const message of [tool({ detail: 'npm test' }), toolMsg('2:0', 'Write', {})]) {
+      const html = out(message)
+      assert.doesNotMatch(html, /<details|<summary/)
+      assert.match(html, /<div class="tl-row">/)
+    }
+    assert.match(text(out(toolMsg('2:0', 'Write', {}))), /Write 成功/)
+  })
+
+  it('結果: 成功・拒否・エラー・実行中（末尾）・結果なし（末尾以外）。クラスにも出る', () => {
+    assert.match(out(tool({}, 'rejected')), /class="tool-line tool-rejected"/)
+    assert.match(text(out(tool({}, 'rejected'))), /拒否/)
+    assert.match(text(out(tool({}, 'error'))), /エラー/)
+    assert.match(out(tool({}, null), { running: true }), /tool-running/)
+    assert.match(text(out(tool({}, null), { running: true })), /実行中/)
+    assert.match(text(out(tool({}, null), { running: false })), /結果なし/)
+  })
+
+  it('コマンド・パスは、文字として出す（HTML を解釈しない）。切れているときは、省略の表示が付く', () => {
+    const html = out(tool({ summary: '<img src=x onerror=alert(1)>', detail: '<img src=x onerror=alert(1)>\n続き', truncated: true }))
+    assert.doesNotMatch(html, /<img/)
+    assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/)
+    assert.match(text(html), /…（以下省略）/)
+  })
+
+  it('出力（結果の中身）は、メッセージにないので、表示にも出ない', () => {
+    assert.doesNotMatch(out(tool()), /SECRET/)
+    assert.equal(toolHasMore(tool({ detail: 'x', summary: 'x' })), false)
+    assert.equal(toolHasMore(tool({ detail: 'x\ny', summary: 'x' })), true)
+    assert.equal(toolStatus(tool({}, null), true), 'running')
+    assert.equal(toolStatus(tool({}, null), false), 'none')
+  })
+})
+
+describe('ツールのグループ（AC-007-22）', () => {
+  const t = (id, name, result = 'ok', at = 1_000, extra = {}) => toolMsg(id, name, { summary: `${name} の要点`, detail: `${name} の全文`, ...extra }, result, at)
+  const hm = (h2, m) => new Date(2026, 9, 12, h2, m).getTime()
+  const group = [t('1', 'Bash', 'error', hm(0, 20)), t('2', 'Read', 'ok', hm(0, 21)), t('3', 'Edit', 'ok', hm(0, 21)), t('4', 'Bash', 'ok', hm(0, 22))]
+
+  it('集計: 件数・ツール名（回数）・結果の内訳・時刻の範囲', () => {
+    const info = summarizeToolGroup(group)
+    assert.equal(info.count, 4)
+    assert.deepEqual(info.names, [{ name: 'Bash', count: 2 }, { name: 'Read', count: 1 }, { name: 'Edit', count: 1 }])
+    assert.deepEqual(info.tally, { ok: 3, error: 1, rejected: 0, running: 0 })
+    assert.deepEqual([info.from, info.to], [hm(0, 20), hm(0, 22)])
+    assert.equal(summarizeToolGroup([t('1', 'Bash', null)], new Set(['1'])).tally.running, 1)
+  })
+
+  it('閉じた 1 行に、件数・ツール名・内訳・時刻の範囲が出る。開くと、個別の行が並ぶ（各行も開閉できる）', () => {
+    const html = renderToStaticMarkup(h(ToolGroup, { group: { id: 'g-1', messages: group }, running: new Set() }))
+    assert.match(html, /<details class="tool-group" data-conversation="tool-group">/)
+    const summary = text(html.slice(html.indexOf('<summary>'), html.indexOf('</summary>')))
+    assert.match(summary, /ツール 4 件 Bash ×2 · Read · Edit 成功 3 エラー 1 00:20〜00:22/)
+    assert.equal((html.match(/data-conversation="tool"/g) ?? []).length, 4, '個別の行が 4 つ')
+    assert.equal((html.match(/<details class="tool-line/g) ?? []).length, 4, '各行は、全文があるので、開閉できる')
+    assert.match(html, /tg-sum warn">エラー 1/)
+  })
+
+  it('同じ時刻の範囲は、1 つだけ出す。実行中・拒否も内訳に出る', () => {
+    const rows = [t('1', 'Bash', 'rejected', hm(1, 5)), t('2', 'Bash', null, hm(1, 5))]
+    const html = renderToStaticMarkup(h(ToolGroup, { group: { id: 'g-1', messages: rows }, running: new Set(['2']) }))
+    const summary = text(html.slice(html.indexOf('<summary>'), html.indexOf('</summary>')))
+    assert.match(summary, /ツール 2 件 Bash ×2 拒否 1 実行中 1 01:05\s*$/)
+  })
+
+  it('連続した 2 件以上だけを、グループにする。1 件・間に発言や質問や結果の行が入るときは、まとめない', () => {
+    const m = (id) => ({ type: 'message', message: t(id, 'Bash') })
+    const say = (id) => ({ type: 'message', message: { id, role: 'assistant', text: 'x', at: 1 } })
+    const ask = { type: 'message', message: { id: 'q', role: 'question', tool: { name: 'AskUserQuestion', result: null }, answers: [] } }
+    const ev = { type: 'event', node: 'x', at: 1 }
+    const kinds = (items) => groupTools(items).map((i) => (i.type === 'toolgroup' ? `group(${i.messages.map((x) => x.id).join(',')})` : i.type === 'event' ? 'event' : i.message.id))
+    assert.deepEqual(kinds([m('1'), m('2'), m('3')]), ['group(1,2,3)'])
+    assert.deepEqual(kinds([m('1'), say('a'), m('2')]), ['1', 'a', '2'], '1 件ずつは、まとめない')
+    assert.deepEqual(kinds([m('1'), m('2'), say('a'), m('3'), m('4')]), ['group(1,2)', 'a', 'group(3,4)'])
+    assert.deepEqual(kinds([m('1'), m('2'), ev, m('3'), m('4')]), ['group(1,2)', 'event', 'group(3,4)'], '結果の行で、グループが分かれる')
+    assert.deepEqual(kinds([m('1'), ask, m('2')]), ['1', 'q', '2'], '質問の行は、グループにしない')
+    assert.equal(groupTools([m('1'), m('2')])[0].id, 'g-1', 'グループの id は、最初の行の id から（追加されても変わらない）')
+  })
+
+  it('末尾のツールの行（あとに発言や応答がない）だけが、実行中', () => {
+    const ids = runningToolIds([{ id: 'a', role: 'assistant', text: 'x' }, t('1', 'Bash', null), t('2', 'Bash', 'ok'), t('3', 'Bash', null)])
+    assert.deepEqual([...ids].sort(), ['1', '3'])
+    assert.deepEqual([...runningToolIds([t('1', 'Bash', null), { id: 'a', role: 'assistant', text: 'x' }])], [], '発言が続いていれば、結果なし')
+  })
+})
+
+describe('会話の時刻順（AC-007-25）', () => {
+  const m = (id, at, role = 'assistant') => ({ id, at, role, text: id })
+  const ev = (key, at) => ({ key, at, node: key })
+  const order = (items) => items.map((i) => (i.type === 'message' ? i.message.id : i.key))
+
+  it('できごと（結果の行・送った指示）が、起きた時刻に合った位置に入る。同じ時刻なら、メッセージのあと', () => {
+    const out = mergeTimeline([m('a', 100), m('b', 300), m('c', 500)], [ev('r1', 200), ev('r2', 300), ev('r3', 900)])
+    assert.deepEqual(order(out), ['a', 'r1', 'b', 'r2', 'c', 'r3'])
+  })
+
+  it('時刻のないできごとは、一番最後。時刻のないメッセージは、そのままの位置（できごとは、そのあとの、時刻つきのメッセージの前に入る）', () => {
+    assert.deepEqual(order(mergeTimeline([m('a', 100), m('x', null), m('b', 300)], [ev('e', undefined), ev('f', 200)])), ['a', 'x', 'f', 'b', 'e'], '時刻のないメッセージは、その位置のまま。できごとは、次の時刻つきのメッセージの前')
+  })
+
+  it('前の会話が、まだ読み込まれていないとき: 最初のメッセージより前のできごとは、出さない（読み込むと、位置に入る）', () => {
+    const items = [m('a', 100), m('b', 300)]
+    assert.deepEqual(order(mergeTimeline(items, [ev('old', 50), ev('r', 200)], { hasMoreBefore: true })), ['a', 'r', 'b'])
+    assert.deepEqual(order(mergeTimeline(items, [ev('old', 50), ev('r', 200)], { hasMoreBefore: false })), ['old', 'a', 'r', 'b'])
+  })
+
+  it('会話がまだないときは、できごとだけが、時刻順に並ぶ', () => {
+    assert.deepEqual(order(mergeTimeline([], [ev('b', 2), ev('a', 1)], { hasMoreBefore: true })), ['a', 'b'])
+  })
+})
+
+describe('詳細での、ツールの行と結果の行（AC-007-4, 22, 23, 25）', () => {
+  const detail = (props = {}) => h(Detail, { session: sess(), now: 10_000, instructions: new Map(), requestRecords: new Map(), onBack() {}, ...props })
+  const ok = (messages, cursor = null) => ({ status: 'ok', messages, cursor, etag: 'W/"1"' })
+  const fetcher = (messages, cursor = null) => async () => ok(messages, cursor)
+  const records = (...list) => new Map(list.map((r) => [r.id, { sessionId: 's1', ...r }]))
+  const messages = [
+    { id: '1', at: 1_000, role: 'user', text: '依頼' },
+    { id: '2:0', at: 3_000, role: 'tool', tool: { name: 'Edit', result: 'ok', summary: 'a.mjs', detail: 'D:\\p\\a.mjs' } },
+    { id: '4:0', at: 5_000, role: 'assistant', text: '応答' },
+  ]
+
+  it('AC-007-25: 許可の結果の行が、会話の中の、起きた時刻の位置（許可 → 実行の順）に入る。再読み込みで消えるので、記録は画面のメモリだけ', async () => {
+    const requestRecords = records({ id: 'r1', status: 'allowed', kind: 'permission', summary: 'Edit — a.mjs', at: 2_000 }, { id: 'r2', status: 'allowed', kind: 'permission', summary: '最新', at: 9_000 })
+    const { container } = render(detail({ fetchConversation: fetcher(messages), requestRecords }))
+    await waitFor(() => assert.match(container.textContent, /応答/), { timeout: 5000 })
+    const talk = container.querySelector('.talk').textContent
+    const at = (s) => talk.indexOf(s)
+    assert.ok(at('依頼') < at('Edit — a.mjs') && at('Edit — a.mjs') < at('a.mjs成功') && at('応答') < at('最新'), `順番: ${talk}`)
+  })
+
+  it('AC-007-25: 前の会話が、まだ読み込まれていないときは、最初のメッセージより前の結果の行は、出さない', async () => {
+    const requestRecords = records({ id: 'old', status: 'allowed', kind: 'permission', summary: '古い結果', at: 10 })
+    const { container } = render(detail({ fetchConversation: fetcher(messages, 100), requestRecords }))
+    await waitFor(() => assert.match(container.textContent, /応答/), { timeout: 5000 })
+    assert.doesNotMatch(container.textContent, /古い結果/)
+  })
+
+  it('AC-007-22: 連続したツールが、詳細の中で、グループになる。間に結果の行が入ると、分かれる', async () => {
+    const tools = [1, 2, 3].map((n) => ({ id: `t${n}`, at: 1_000 * n, role: 'tool', tool: { name: 'Bash', result: 'ok', summary: `cmd ${n}`, detail: `cmd ${n}` } }))
+    const { container } = render(detail({ fetchConversation: fetcher(tools) }))
+    await waitFor(() => assert.equal(container.querySelectorAll('.tool-group').length, 1), { timeout: 5000 })
+    assert.equal(container.querySelectorAll('.tool-group .tool-line').length, 3)
+    cleanup()
+    const requestRecords = records({ id: 'r', status: 'allowed', kind: 'permission', summary: '結果', at: 1_500 })
+    const split = render(detail({ fetchConversation: fetcher(tools), requestRecords }))
+    await waitFor(() => assert.match(split.container.textContent, /結果/), { timeout: 5000 })
+    assert.equal(split.container.querySelectorAll('.tool-group').length, 1, 't2・t3 だけがグループ（t1 は 1 件なので、まとめない）')
+    assert.equal(split.container.querySelectorAll('.talk > .tool-line').length, 1)
+  })
+
+  it('AC-007-23: 開いた行・グループは、画面が更新されても、開いたまま', async () => {
+    const tools = [1, 2].map((n) => ({ id: `t${n}`, at: 1_000 * n, role: 'tool', tool: { name: 'Read', result: 'ok', summary: `f${n}`, detail: `D:\\p\\f${n}` } }))
+    const { container, rerender } = render(detail({ fetchConversation: fetcher(tools) }))
+    await waitFor(() => assert.equal(container.querySelectorAll('.tool-group').length, 1), { timeout: 5000 })
+    const groupEl = container.querySelector('details.tool-group')
+    groupEl.open = true
+    const row = groupEl.querySelector('details.tool-line')
+    row.open = true
+    const requestRecords = records({ id: 'late', status: 'allowed', kind: 'permission', summary: '新しい結果', at: 9_000 })
+    rerender(detail({ fetchConversation: fetcher(tools), requestRecords, now: 20_000 }))
+    await waitFor(() => assert.match(container.textContent, /新しい結果/))
+    assert.equal(container.querySelector('details.tool-group'), groupEl, '同じ要素のまま')
+    assert.equal(groupEl.open, true)
+    assert.equal(groupEl.querySelector('details.tool-line').open, true)
+  })
+})

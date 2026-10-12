@@ -92,6 +92,68 @@ const resultOf = (block) => {
   return /doesn't want to proceed|User rejected tool use/.test(t) ? 'rejected' : 'error'
 }
 
+// ---- ツールの要点と全文（ADR 0029）----
+// 閉じた行に出す要点（summary）と、開いたときに出す全文（detail）を、ツールの入力から取り出す。出力（結果の中身）は、扱わない
+const SUMMARY_MAX = 300
+const str = (v) => (typeof v === 'string' && v.trim() !== '' ? v : null)
+const slashes = (p) => p.replace(/\\/g, '/')
+// 作業フォルダの中のパスは、そこからの相対にする（外は、そのまま）
+const relative = (p, cwd) => {
+  if (!str(cwd)) return p
+  const a = slashes(p)
+  const base = slashes(cwd).replace(/\/+$/, '')
+  return a.toLowerCase().startsWith(base.toLowerCase() + '/') ? a.slice(base.length + 1) : p
+}
+const firstLine = (text) => {
+  const chars = Array.from((text.split(/\r?\n/).find((l) => l.trim() !== '') ?? '').trim())
+  return chars.length > SUMMARY_MAX ? chars.slice(0, SUMMARY_MAX).join('') + '…' : chars.join('')
+}
+export const toolTarget = (name, input, cwd = null) => {
+  if (!input || typeof input !== 'object') return null
+  switch (name) {
+    case 'Bash': {
+      const command = str(input.command)
+      return command ? { summary: firstLine(command), detail: command } : null
+    }
+    case 'Read': case 'Edit': case 'MultiEdit': case 'Write': case 'NotebookEdit': {
+      const p = str(input.file_path) ?? str(input.notebook_path)
+      return p ? { summary: relative(p, cwd), detail: p } : null
+    }
+    case 'Grep': case 'Glob': {
+      const pattern = str(input.pattern)
+      if (!pattern) return null
+      const p = str(input.path)
+      const glob = name === 'Grep' ? str(input.glob) : null
+      const quoted = name === 'Grep' ? `"${firstLine(pattern)}"` : firstLine(pattern)
+      return {
+        summary: quoted + (p ? ` in ${relative(p, cwd)}` : ''),
+        detail: [`pattern: ${pattern}`, p && `path: ${p}`, glob && `glob: ${glob}`].filter(Boolean).join('\n'),
+      }
+    }
+    case 'WebFetch': {
+      const url = str(input.url)
+      return url ? { summary: firstLine(url), detail: url } : null
+    }
+    case 'WebSearch': {
+      const query = str(input.query)
+      return query ? { summary: firstLine(query), detail: query } : null
+    }
+    case 'Task': case 'Agent': {
+      const description = str(input.description) ?? str(input.prompt)
+      return description ? { summary: firstLine(description), detail: description } : null
+    }
+    default:
+      return null
+  }
+}
+// ツールの行の、tool の部分。要点が取れたときだけ、summary・detail（4,000 文字で切る）を付ける
+const toolInfo = (name, input, cwd) => {
+  const target = toolTarget(name, input, cwd)
+  if (!target) return { name, result: null }
+  const detail = clip(target.detail)
+  return { name, result: null, summary: target.summary, detail: detail.text, ...(detail.truncated ? { truncated: true } : {}) }
+}
+
 // entries: [{ offset, entry }]（古い順）。戻り値: メッセージ（古い順）。各メッセージの offset は、そのレコードの行の位置
 export const buildMessages = (entries) => {
   const messages = []
@@ -136,7 +198,7 @@ export const buildMessages = (entries) => {
           const questions = block.name === 'AskUserQuestion' && Array.isArray(block.input?.questions) ? block.input.questions : null
           const m = questions
             ? { ...base, id: `${offset}:${i}`, role: 'question', tool: { name: block.name, result: null }, answers: questions.map((q) => ({ question: String(q?.question ?? ''), answer: null })) }
-            : { ...base, id: `${offset}:${i}`, role: 'tool', tool: { name: block.name, result: null } }
+            : { ...base, id: `${offset}:${i}`, role: 'tool', tool: toolInfo(block.name, block.input, entry.cwd) }
           messages.push(m)
           if (typeof block.id === 'string') tools.set(block.id, m)
         }

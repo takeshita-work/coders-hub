@@ -38,7 +38,7 @@ describe('レコード → メッセージ（AC-007-2〜5, 9）', () => {
     assert.deepEqual(m, [])
   })
 
-  it('AC-007-4: ツールの使用は 1 行（名前と結果）。成功・拒否・エラーを区別する。入力と出力の内容は含まない', () => {
+  it('AC-007-4: ツールの使用は 1 行（名前・要点・結果）。成功・拒否・エラーを区別する。出力の内容は含まない（入力の要点は含む。ADR 0029）', () => {
     const m = parse([
       toolUse('t1', 'Bash', { command: 'ひみつのコマンド' }), toolResult('t1', 'ひみつの出力'),
       toolUse('t2', 'Edit', {}), toolResult('t2', "The user doesn't want to proceed with this tool use. The tool use was rejected", { is_error: true }),
@@ -46,7 +46,9 @@ describe('レコード → メッセージ（AC-007-2〜5, 9）', () => {
       toolUse('t4', 'Write', {}),
     ])
     assert.deepEqual(m.map((x) => [x.role, x.tool.name, x.tool.result]), [['tool', 'Bash', 'ok'], ['tool', 'Edit', 'rejected'], ['tool', 'Read', 'error'], ['tool', 'Write', null]])
-    assert.doesNotMatch(JSON.stringify(m), /ひみつ|ENOENT/)
+    assert.doesNotMatch(JSON.stringify(m), /ひみつの出力|ENOENT/, '出力は、含まない')
+    assert.deepEqual([m[0].tool.summary, m[0].tool.detail], ['ひみつのコマンド', 'ひみつのコマンド'], 'コマンドは、要点と全文になる')
+    assert.deepEqual(Object.keys(m[1].tool).sort(), ['name', 'result'], '入力が取れなければ、要点・全文はなし')
   })
 
   it('AC-007-5: AskUserQuestion は、質問文と選ばれた答えが出る', () => {
@@ -246,5 +248,75 @@ describe('会話ログの場所（AC-007-15, 16）', () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
+  })
+})
+
+// ---- ツールの要点と全文（AC-007-24。ADR 0029）----
+import { toolTarget } from '../src/hub/conversation.mjs'
+
+describe('ツールの要点と全文（AC-007-24）', () => {
+  const CWD = 'D:\\work\\coders-hub'
+
+  it('Bash: 要点はコマンドの 1 行目、全文はコマンド全文', () => {
+    assert.deepEqual(toolTarget('Bash', { command: 'npm run build &&\n  npm test\n# 説明' }), { summary: 'npm run build &&', detail: 'npm run build &&\n  npm test\n# 説明' })
+    assert.deepEqual(toolTarget('Bash', { command: '\n\n  ls -la  \n' }).summary, 'ls -la', '先頭の空行は飛ばす')
+  })
+
+  it('Read・Edit・Write・NotebookEdit: 作業フォルダの中は相対（/ 区切り）、外は絶対。全文は、絶対パス', () => {
+    const inside = `${CWD}\\tests\\sessions.test.mjs`
+    for (const name of ['Read', 'Edit', 'MultiEdit', 'Write']) {
+      assert.deepEqual(toolTarget(name, { file_path: inside }, CWD), { summary: 'tests/sessions.test.mjs', detail: inside }, name)
+    }
+    assert.deepEqual(toolTarget('NotebookEdit', { notebook_path: `${CWD}/a.ipynb` }, CWD), { summary: 'a.ipynb', detail: `${CWD}/a.ipynb` })
+    assert.deepEqual(toolTarget('Read', { file_path: 'C:\\other\\x.txt' }, CWD), { summary: 'C:\\other\\x.txt', detail: 'C:\\other\\x.txt' }, '作業フォルダの外は、そのまま')
+    assert.equal(toolTarget('Read', { file_path: `${CWD}-2\\x.txt` }, CWD).summary, `${CWD}-2\\x.txt`, '名前が前方一致するだけの別のフォルダは、相対にしない')
+    assert.equal(toolTarget('Read', { file_path: inside.toLowerCase() }, CWD).summary, 'tests/sessions.test.mjs', '大文字・小文字の違いは、同じフォルダとみなす（Windows）')
+    assert.equal(toolTarget('Read', { file_path: inside }).summary, inside, '作業フォルダが分からなければ、そのまま')
+  })
+
+  it('Grep: "検索語" in パス。全文は、検索語・パス・glob（行ごと）。Glob は、パターン', () => {
+    assert.deepEqual(toolTarget('Grep', { pattern: 'asyncRewake', path: `${CWD}\\src`, glob: '*.mjs' }, CWD), {
+      summary: '"asyncRewake" in src', detail: `pattern: asyncRewake\npath: ${CWD}\\src\nglob: *.mjs`,
+    })
+    assert.equal(toolTarget('Grep', { pattern: 'x' }).summary, '"x"')
+    assert.deepEqual(toolTarget('Glob', { pattern: 'src/**/*.mjs', path: `${CWD}\\src` }, CWD), { summary: 'src/**/*.mjs in src', detail: `pattern: src/**/*.mjs\npath: ${CWD}\\src` })
+  })
+
+  it('WebFetch・WebSearch・Task・Agent: URL・検索語・説明', () => {
+    assert.deepEqual(toolTarget('WebFetch', { url: 'https://example.com/a' }), { summary: 'https://example.com/a', detail: 'https://example.com/a' })
+    assert.deepEqual(toolTarget('WebSearch', { query: 'node test runner' }), { summary: 'node test runner', detail: 'node test runner' })
+    assert.deepEqual(toolTarget('Task', { description: '調査する', prompt: '長い指示' }), { summary: '調査する', detail: '調査する' })
+    assert.deepEqual(toolTarget('Agent', { prompt: '指示の 1 行目\n2 行目' }), { summary: '指示の 1 行目', detail: '指示の 1 行目\n2 行目' })
+  })
+
+  it('取れないとき（入力がない・形が違う・知らないツール）は、null', () => {
+    for (const args of [['Bash', null], ['Bash', {}], ['Bash', { command: '  ' }], ['Read', { file_path: 3 }], ['Grep', { path: 'x' }], ['Unknown', { command: 'x' }], ['AskUserQuestion', { questions: [] }]]) {
+      assert.equal(toolTarget(...args), null, JSON.stringify(args))
+    }
+  })
+
+  it('要点は 300 文字までで切る。全文は 4,000 文字で切り、truncated を付ける', () => {
+    const long = 'a'.repeat(5000)
+    const m = parse([toolUse('t1', 'Bash', { command: long })])
+    assert.equal(Array.from(m[0].tool.summary).length, 301, '300 文字 + …')
+    assert.equal(m[0].tool.detail.length, MAX_TEXT)
+    assert.equal(m[0].tool.truncated, true)
+    const short = parse([toolUse('t2', 'Bash', { command: 'ls' })])
+    assert.equal(short[0].tool.truncated, undefined)
+  })
+
+  it('メッセージに、作業フォルダ（レコードの cwd）が使われる。AskUserQuestion には、要点・全文を付けない', () => {
+    const m = parse([
+      { ...toolUse('t1', 'Edit', { file_path: `${CWD}\\a.mjs` }), cwd: CWD },
+      toolUse('q1', 'AskUserQuestion', { questions: [{ question: '？', options: [] }] }),
+    ])
+    assert.equal(m[0].tool.summary, 'a.mjs')
+    assert.equal(m[1].role, 'question')
+    assert.deepEqual(Object.keys(m[1].tool).sort(), ['name', 'result'])
+  })
+
+  it('ツールの出力（結果の中身）は、どのメッセージにも含まれない', () => {
+    const m = parse([toolUse('t1', 'Bash', { command: 'cat .env' }), toolResult('t1', 'SECRET=abc123'), toolUse('t2', 'Read', { file_path: '/x' }), toolResult('t2', 'パスワード: xyz')])
+    assert.doesNotMatch(JSON.stringify(m), /abc123|xyz|パスワード/)
   })
 })

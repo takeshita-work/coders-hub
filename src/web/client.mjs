@@ -10,6 +10,7 @@ export const initialState = () => ({
   connected: false,
   ready: false, // 最初のスナップショットを受け取ったか（受け取るまで「空」と表示しない）
   offset: 0, // Hub の時刻 - この PC の時刻（ミリ秒）。経過時間の計算に使う
+  version: null, // Hub のバージョン（snapshot で届く。メニューに出す）
   instructions: new Map(), // この画面から送った指示の記録（id -> { id, sessionId, status, reason?, preview? }）
   requestRecords: new Map(), // 閉じた許可要求・質問の結果（id -> { id, sessionId, status, reason?, summary? }）
   requestSummaries: new Map(), // 応答待ちだった要求の短い説明（結果の表示に使う。id -> 説明）
@@ -56,6 +57,7 @@ export const createClient = ({
       if (message.type === 'snapshot') {
         patch.ready = true
         if (typeof message.now === 'number') patch.offset = message.now - now()
+        if (typeof message.version === 'string') patch.version = message.version
         // 再接続のたびに、保留中の指示が残っているかを確かめる（消えていれば「失われました」）
         patch.instructions = reconcileInstructions(state.instructions, patch.sessions)
       }

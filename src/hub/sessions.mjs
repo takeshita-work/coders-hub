@@ -41,6 +41,8 @@ const view = (r) => ({
   controllable: r.controllable,
   // 保留中の指示 [{ id, createdAt, preview }]（002-send-instruction）
   pending: r.pending,
+  // resume した会話の、元のセッション ID。なければ null（画面の「再開（元 …）」。機能 006 AC-UI-36）
+  resumedFrom: r.resumedFrom,
   // 応答待ちの許可要求・質問 [{ id, kind, ... }]（003-permission-relay）
   requests: r.requests,
 })
@@ -76,7 +78,7 @@ export const createStore = ({ now = Date.now, expireMs = 50_000 } = {}) => {
     const r = {
       sessionId, account: null, cwd: null, state, stateSince: now(), startedAt: now(),
       lastPrompt: null, transcriptPath: null, channelAlive: false, lastPollAt: null,
-      controllable: false, pending: [], requests: [],
+      controllable: false, pending: [], requests: [], resumedFrom: null,
       // 状態を推測で置いただけ（再起動後の復元など）。実際の状態が分かったら外す
       unverified: false,
     }

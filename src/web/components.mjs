@@ -2,11 +2,13 @@
 // 仕様: specs/30-features/006-dashboard-layout/spec.md（ADR 0015）。見た目の基準は specs/20-design/screens/mockup/index.html
 import { createElement as h, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  CONVERSATION_POLL_MS, INSTRUCTION_LABEL, MAX_INSTRUCTION, PREVIEW_COLLAPSE_CHARS, REQUEST_LABEL, SHORT_LABEL, TOOL_RESULT_LABEL, VIEW_ONLY_LABEL,
+  CONVERSATION_POLL_MS, INSTRUCTION_LABEL, MAX_INSTRUCTION, PREVIEW_COLLAPSE_CHARS, REQUEST_LABEL, SHORT_LABEL, TOOL_STATUS_LABEL, VIEW_ONLY_LABEL,
   accountName, applyLatest, buildAnswers, buildTree, collapsePreview, deliveredInstructionIds, emptyConversation, emptyDraft, formatClock,
-  formatElapsed, formatPrompt, isAttention, isFinal, parsePreview, prependOlder, previewLength, projectName, recordsFor, requestRecordsFor,
-  setOther, shortId, sidebarAllowRequest, toggleOption, validateAnswers, validateInstruction, withConversationError,
+  formatElapsed, formatPrompt, groupTools, isAttention, isFinal, mergeTimeline, parsePreview, prependOlder, previewLength, projectName, recordsFor,
+  requestRecordsFor, runningToolIds, setOther, shortId, sidebarAllowRequest, summarizeToolGroup, toggleOption, toolHasMore, toolStatus,
+  toolSummaryOf, validateAnswers, validateInstruction, withConversationError,
 } from './logic.mjs'
+import { DEFAULT_SETTINGS, DURATIONS } from './notify.mjs'
 import { Markdown } from './markdown.mjs'
 
 // ---- 許可要求・質問（会話の中のカード。機能 003） ----
@@ -146,13 +148,45 @@ export const SentMessage = ({ record, onDismiss }) =>
 
 const Time = ({ at }) => (formatClock(at) ? h('time', { className: 'msg-time' }, formatClock(at)) : null)
 
+// ツールの使用（AC-007-4。ADR 0029）。閉じた 1 行: ツール名・要点（実行したコマンド・ファイル名など）・結果・時刻。
+// 開くと、要点の全文。出力（結果の中身）は出さない。全文が要点と同じなら、開く意味がないので、開閉しない
+export const ToolRow = ({ message, running }) => {
+  const status = toolStatus(message, running)
+  const summary = toolSummaryOf(message)
+  const head = [
+    h('span', { key: 'name', className: 'tool-name' }, message.tool.name),
+    summary && h('span', { key: 'arg', className: 'tool-arg', title: summary }, summary),
+    h('span', { key: 'result', className: 'tool-result' }, TOOL_STATUS_LABEL[status]),
+    h(Time, { key: 'time', at: message.at }),
+  ]
+  const className = `tool-line tool-${status}`
+  if (!toolHasMore(message)) return h('div', { className, 'data-conversation': 'tool' }, h('div', { className: 'tl-row' }, head))
+  return h('details', { className, 'data-conversation': 'tool' },
+    h('summary', null, head),
+    h('div', { className: 'tool-detail' },
+      h('pre', { className: 'pre' }, message.tool.detail),
+      message.tool.truncated && h('span', { className: 'truncated' }, '…（以下省略）')))
+}
+
+// 連続したツール（2 件以上）のグループ（AC-007-22）。閉じた 1 行: 件数・ツール名（回数）・結果の内訳・時刻の範囲。開くと、個別の行
+const GROUP_SUMS = [['ok', '成功', ''], ['error', 'エラー', 'warn'], ['rejected', '拒否', 'warn'], ['running', '実行中', 'run']]
+export const ToolGroup = ({ group, running }) => {
+  const info = summarizeToolGroup(group.messages, running)
+  const from = formatClock(info.from)
+  const to = formatClock(info.to)
+  const range = from === '' ? '' : from === to ? from : `${from}〜${to}`
+  return h('details', { className: 'tool-group', 'data-conversation': 'tool-group' },
+    h('summary', null,
+      h('span', { className: 'tg-count' }, `ツール ${info.count} 件`),
+      h('span', { className: 'tg-names' }, info.names.map((n) => (n.count > 1 ? `${n.name} ×${n.count}` : n.name)).join(' · ')),
+      GROUP_SUMS.filter(([key]) => info.tally[key] > 0).map(([key, label, cls]) => h('span', { key, className: `tg-sum ${cls}`.trim() }, `${label} ${info.tally[key]}`)),
+      range && h('time', { className: 'msg-time' }, range)),
+    h('div', { className: 'tool-group-body' }, group.messages.map((m) => h(ToolRow, { key: m.id, message: m, running: running.has(m.id) }))))
+}
+
 // 利用者の発言と応答の本文は、文字として出す（HTML・Markdown を解釈しない。AC-007-6。React が文字として扱う）
 export const ConversationMessage = ({ message, running }) => {
-  if (message.role === 'tool') {
-    const label = message.tool.result ? TOOL_RESULT_LABEL[message.tool.result] : running ? '実行中' : '結果なし'
-    return h('div', { className: `tool-line${message.tool.result ? ` tool-${message.tool.result}` : ''}`, 'data-conversation': 'tool' },
-      h('span', { className: 'tool-name' }, message.tool.name), h('span', { className: 'tool-result' }, label), h(Time, { at: message.at }))
-  }
+  if (message.role === 'tool') return h(ToolRow, { message, running })
   if (message.role === 'question') {
     return h('div', { className: 'msg qa', 'data-conversation': 'question' },
       h('small', null, h('span', { className: 'res-tag' }, '質問'), message.tool.result === 'rejected' && h('span', { className: 'tag-pend' }, '拒否'), h(Time, { at: message.at })),
@@ -248,6 +282,7 @@ export const Composer = ({ session, onSend }) => {
 export const StatusLine = ({ session, elapsedMs }) =>
   h('div', { className: 'status-line' },
     h('span', { className: 'sl-id', title: session.sessionId }, shortId(session.sessionId)),
+    session.resumedFrom && h('span', { className: 'sl-resume', title: 'resume した会話。元の ID の記録を引き継いでいる' }, `再開（元 ${shortId(session.resumedFrom)}）`),
     h('span', { className: 'sl-elapsed' }, formatElapsed(elapsedMs)),
     SHORT_LABEL[session.state] && h('span', { className: `state chip-${session.state}` }, SHORT_LABEL[session.state]),
   )
@@ -269,11 +304,13 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
   const delivered = deliveredInstructionIds(conv.messages)
   const sent = (instructions ? recordsFor(instructions, session.sessionId) : []).filter((r) => r.status !== 'held' && !delivered.has(r.id))
   const results = requestRecords ? requestRecordsFor(requestRecords, session.sessionId) : []
-  // 結果の行と送った指示は、起きた順に並べる
+  // 結果の行と送った指示（できごと）は、会話ログのメッセージと、起きた時刻の順に、1 本に並べる（AC-007-25）
   const events = [
-    ...sent.map((r) => ({ at: r.at ?? 0, node: h(SentMessage, { key: `i-${r.id}`, record: r, onDismiss }) })),
-    ...results.map((r) => ({ at: r.at ?? 0, node: h(ResultLine, { key: `r-${r.id}`, record: r, onDismiss: onDismissRequest }) })),
-  ].sort((a, b) => a.at - b.at)
+    ...sent.map((r) => ({ at: r.at, node: h(SentMessage, { key: `i-${r.id}`, record: r, onDismiss }) })),
+    ...results.map((r) => ({ at: r.at, node: h(ResultLine, { key: `r-${r.id}`, record: r, onDismiss: onDismissRequest }) })),
+  ]
+  const running = runningToolIds(conv.messages)
+  const timeline = groupTools(mergeTimeline(conv.messages, events, { hasMoreBefore: conv.cursor !== null }))
 
   const scrollToBottom = () => { if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight }
   // 自分の操作や要求の出現（カード・結果・指示）が増えたときは一番下へ。開いたときも一番下へ（AC-UI-23）
@@ -327,8 +364,6 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
     loadIfNearTop()
   }
 
-  // 末尾のツールの行（あとに発言や応答がない）は、実行中として出す
-  const tailStart = conv.messages.findLastIndex((m) => m.role !== 'tool') + 1
   return h('div', { className: 'detail', ref: scroller, onScroll, 'data-session-id': session.sessionId },
     h('div', { className: 'd-top' },
       h('div', { className: 'float' },
@@ -345,12 +380,15 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
         conv.error && (conv.error === 'no-transcript'
           ? conv.messages.length === 0 && h('p', { className: 'conv-note', 'data-conversation-note': 'none' }, '会話の記録がまだありません')
           : h('p', { className: 'conv-note conv-error', role: 'status', 'data-conversation-note': 'error' }, '会話を読み込めません')),
-        conv.messages.map((m, i) => h(ConversationMessage, { key: m.id, message: m, running: i >= tailStart })),
+        timeline.map((item) => {
+          if (item.type === 'event') return item.node
+          if (item.type === 'toolgroup') return h(ToolGroup, { key: item.id, group: item, running })
+          return h(ConversationMessage, { key: item.message.id, message: item.message, running: running.has(item.message.id) })
+        }),
         requests.map((r) =>
           r.kind === 'permission'
             ? h(PermissionCard, { key: r.id, sessionId: session.sessionId, request: r, onRespond })
             : h(QuestionCard, { key: r.id, sessionId: session.sessionId, request: r, onRespond })),
-        events.map((e) => e.node),
         pending.map((p) => h(PendingMessage, { key: `p-${p.id}`, sessionId: session.sessionId, pending: p, onCancel })),
       ),
     ),
@@ -425,15 +463,62 @@ const Node = ({ nodeKey, className, head, name, counts, collapsed, onToggle, chi
 const SortButton = ({ value, onClick, label }) =>
   h('button', { type: 'button', className: 'sort-btn', onClick, 'aria-label': label }, value ? '↑ 昇順' : '↓ 降順')
 
-// パネルの最下段: Hub を終了する（機能 006 AC-UI-31、機能 007、ADR 0020）。押すと、その場で確認が出る
-export const QuitSection = ({ onShutdown }) => {
-  const [phase, setPhase] = useState('idle') // idle | confirm | sending | done
+const MenuIcon = () =>
+  h('svg', { width: 20, height: 16, viewBox: '0 0 20 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', 'aria-hidden': true },
+    h('path', { d: 'M3 3h14M3 8h14M3 13h14' }))
+
+const SpeakerIcon = ({ muted }) =>
+  h('svg', { width: 18, height: 16, viewBox: '0 0 24 20', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+    h('path', { d: 'M3 7h4l5-4v14l-5-4H3z' }),
+    muted ? h('path', { d: 'M16 7l5 6M21 7l-5 6' }) : h('path', { d: 'M16 7a4 4 0 010 6M18.5 4.5a8 8 0 010 11' }))
+
+// メニューのパネル（機能 006 の AC-UI-31〜33、機能 008）: バージョン・音量とミュート・画面の点滅・続ける時間・Hub の終了
+//  settings: 通知の設定（notify.mjs）。onSettings(patch): 設定の変更。onPreview('sound' | 'flash'): 試しに鳴らす・光らせる
+export const MenuPanel = ({ version, settings = DEFAULT_SETTINGS, onSettings, onPreview, onQuit }) =>
+  h('div', { className: 'panel', 'data-panel': 'menu' },
+    h('div', { className: 'panel-sec' },
+      h('div', { className: 'panel-row' }, h('span', null, 'バージョン'), h('span', { className: 'panel-val', 'data-version': true }, version ?? '—'))),
+    h('div', { className: 'panel-sec' },
+      h('div', { className: 'panel-row' },
+        h('span', null, '音量'),
+        h('span', { className: 'vol' },
+          h('button', {
+            type: 'button', className: 'sort-btn mute-btn', 'aria-pressed': settings.mute, 'aria-label': 'ミュート', title: 'ミュート',
+            onClick: () => onSettings?.({ mute: !settings.mute }),
+          }, h(SpeakerIcon, { muted: settings.mute })),
+          h('input', {
+            type: 'range', min: 0, max: 100, step: 5, value: settings.volume, disabled: settings.mute, 'aria-label': '音量',
+            onChange: (e) => onSettings?.({ volume: Number(e.target.value) }),
+            // 動かし終えたら、試しに鳴らす（AC-NT-9）
+            onPointerUp: () => onPreview?.('sound'), onKeyUp: () => onPreview?.('sound'),
+          }),
+          h('span', { className: 'vol-num' }, settings.volume))),
+      h('div', { className: 'panel-row' },
+        h('span', null, '画面の点滅'),
+        h('button', {
+          type: 'button', className: 'switch', role: 'switch', 'aria-checked': settings.blink, 'aria-label': '画面の点滅',
+          onClick: () => { onSettings?.({ blink: !settings.blink }); if (!settings.blink) onPreview?.('flash') },
+        }, h('span', { className: 'knob' }))),
+      h('div', { className: 'panel-row' },
+        h('span', null, '続ける時間'),
+        h('select', {
+          className: 'sort-btn', 'aria-label': '点滅と音を続ける時間', value: settings.alertSec, disabled: settings.mute && !settings.blink,
+          onChange: (e) => onSettings?.({ alertSec: Number(e.target.value) }),
+        }, DURATIONS.map((d) => h('option', { key: d.sec, value: d.sec }, d.label))))),
+    h('div', { className: 'panel-sec' },
+      h('div', { className: 'panel-row' }, h('span', null, 'Hub'), h('button', { type: 'button', className: 'quit-btn', onClick: onQuit }, '終了…'))))
+
+// Hub を終了する確認のモーダル（AC-UI-31, 34。機能 007、ADR 0020）。開いたとき、フォーカスは「やめる」。Esc・外側のクリックで閉じる
+export const QuitDialog = ({ onClose, onShutdown }) => {
+  const [phase, setPhase] = useState('confirm') // confirm | sending | done
   const [error, setError] = useState(null)
-  if (phase === 'done') return h('div', { className: 'panel-sec' }, h('div', { className: 'quit-note', role: 'status' }, 'Hub を終了しました。起動するには coders-hub を実行してください。'))
-  if (phase === 'idle') {
-    return h('div', { className: 'panel-sec' },
-      h('div', { className: 'panel-row' }, h('span', null, 'Hub'), h('button', { type: 'button', className: 'quit-btn', onClick: () => setPhase('confirm') }, '終了…')))
-  }
+  const firstButton = useRef(null)
+  useEffect(() => { firstButton.current?.focus() }, [phase])
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && phase !== 'sending') onClose?.() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [phase, onClose])
   const go = async () => {
     setPhase('sending')
     setError(null)
@@ -441,15 +526,24 @@ export const QuitSection = ({ onShutdown }) => {
     if (result?.ok) setPhase('done')
     else { setError(result?.reason ?? '終了を要求できませんでした'); setPhase('confirm') }
   }
-  return h('div', { className: 'panel-sec' },
-    h('div', { className: 'quit-note' }, 'Hub を終了します。動いているセッションは、Hub を起動し直すまで一覧から消えます。'),
-    error && h('div', { className: 'quit-note', role: 'alert' }, error),
-    h('div', { className: 'quit-actions' },
-      h('button', { type: 'button', className: 'sort-btn', disabled: phase === 'sending', onClick: () => { setError(null); setPhase('idle') } }, 'やめる'),
-      h('button', { type: 'button', className: 'quit-btn', disabled: phase === 'sending', onClick: go }, '終了する')))
+  return h('div', { className: 'modal-back', 'data-modal': 'quit', onMouseDown: (e) => { if (e.target === e.currentTarget && phase !== 'sending') onClose?.() } },
+    h('div', { className: 'modal', role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'quit-title' },
+      phase === 'done'
+        ? [
+          h('h2', { key: 'title', id: 'quit-title' }, 'Hub を終了しました'),
+          h('p', { key: 'note', className: 'modal-note', role: 'status' }, '起動するには coders-hub を実行してください。'),
+          h('div', { key: 'actions', className: 'modal-actions' }, h('button', { type: 'button', ref: firstButton, onClick: onClose }, '閉じる')),
+        ]
+        : [
+          h('h2', { key: 'title', id: 'quit-title' }, 'Hub を終了しますか？'),
+          error && h('p', { key: 'error', className: 'modal-note', role: 'alert' }, error),
+          h('div', { key: 'actions', className: 'modal-actions' },
+            h('button', { type: 'button', ref: firstButton, disabled: phase === 'sending', onClick: onClose }, 'やめる'),
+            h('button', { type: 'button', className: 'danger', disabled: phase === 'sending', onClick: go }, '終了する')),
+        ]))
 }
 
-export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, onShutdown }) => {
+export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, version = null, notify = null }) => {
   const tree = buildTree(sessions, ui)
   return h('aside', { className: 'side' },
     h('div', { className: 'side-head' },
@@ -459,6 +553,10 @@ export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, onSh
           type: 'button', className: 'menu-btn', 'aria-expanded': ui.opts, 'aria-label': 'フィルター・ソート', title: 'フィルター・ソート',
           onClick: () => onUi?.({ opts: !ui.opts }),
         }, h(FilterIcon), ui.onlyControl && h('span', { className: 'dot', 'data-filtering': true })),
+        h('button', {
+          type: 'button', className: 'menu-btn', 'aria-expanded': ui.menu, 'aria-label': 'メニュー', title: 'メニュー',
+          onClick: () => onUi?.({ menu: !ui.menu }),
+        }, h(MenuIcon)),
       ),
       ui.opts && h('div', { className: 'panel' },
         h('div', { className: 'panel-sec' },
@@ -476,8 +574,10 @@ export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, onSh
             h('span', null, 'セッション'),
             h(SortButton, { value: ui.sessSort === 'early', label: 'セッションの並び', onClick: () => onUi?.({ sessSort: ui.sessSort === 'early' ? 'late' : 'early' }) })),
         ),
-        h(QuitSection, { onShutdown }),
       ),
+      ui.menu && h(MenuPanel, {
+        version, settings: notify?.settings, onSettings: notify?.onSettings, onPreview: notify?.onPreview, onQuit: () => onUi?.({ quit: true }),
+      }),
     ),
     h('div', { className: 'side-scroll' },
       tree.length === 0
@@ -503,11 +603,11 @@ export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, onSh
 }
 
 export const defaultUi = () => ({
-  selected: null, view: 'list', opts: false, onlyControl: false, dirSort: 'asc', sessSort: 'early', collapsed: new Set(),
+  selected: null, view: 'list', opts: false, menu: false, quit: false, onlyControl: false, dirSort: 'asc', sessSort: 'early', collapsed: new Set(),
 })
 
 // state: client.mjs の状態、now: 補正済みの現在時刻（ミリ秒）、ui: 画面の状態（defaultUi）、onUi: 画面の状態の変更
-export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation }) => {
+export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation, notify = null }) => {
   const all = [...state.sessions.values()]
   const selected = ui.selected ? state.sessions.get(ui.selected) ?? null : null
   // 選んでいたセッションが閉じたら、詳細は空にして、スマホでは一覧に戻す
@@ -516,7 +616,7 @@ export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDi
     !state.connected && h('div', { className: 'banner', role: 'alert' },
       state.ready ? 'Hub との接続が切れました。再接続しています…（表示は最後に受け取った内容です）' : 'Hub に接続しています…'),
     h('div', { className: `app view-${view}${state.connected ? '' : ' stale'}` },
-      h(Sidebar, { sessions: all, ready: state.ready, now, ui, onUi, onRespond, onShutdown }),
+      h(Sidebar, { sessions: all, ready: state.ready, now, ui, onUi, onRespond, version: state.version, notify }),
       h('main', { className: 'main' },
         selected
           ? h(Detail, {
@@ -526,5 +626,9 @@ export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDi
           : h('div', { className: 'empty' },
             h('div', null, h('p', null, h('b', null, 'セッションを選んでください')), h('p', null, `要対応: ${all.filter(isAttention).length} 件`)))),
     ),
+    // Hub を終了する確認（モーダル。AC-UI-31）
+    ui.quit && h(QuitDialog, { onClose: () => onUi?.({ quit: false }), onShutdown }),
+    // 通知の点滅（画面の縁。機能 008）。クリックを通す
+    h('div', { id: 'flash', 'aria-hidden': true }),
   )
 }

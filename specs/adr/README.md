@@ -42,3 +42,5 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0026 | チャネルサーバーは `claude mcp add` で、`--channel` つきで登録する | Accepted |
 | 0027 | セットアップは、案内のメニューで、手順を 1 つずつ表示して進める | Accepted |
 | 0028 | 設定のファイル保存（`setup --write`・メニューの 2）をやめる | Accepted |
+| 0029 | 会話のツールの行に、実行したコマンド・変更したファイル名を出す（出力は出さない） | Accepted |
+| 0030 | 通知は、画面を開いている間の、音と点滅で行う（OS の通知は使わない） | Accepted |

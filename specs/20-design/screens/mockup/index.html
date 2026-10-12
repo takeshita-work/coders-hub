@@ -158,6 +158,7 @@ select.sort-btn:focus, select.sort-btn:focus-visible { outline: 1px solid color-
 .sess-btn.sel { background: var(--sel); }
 .sess-box .sess-btn:hover { background: var(--surface2); }
 .sess.nc .sess-btn:hover { background: transparent; }
+.sl-resume { color: var(--muted); }
 .sess-id { font-family: ui-monospace, Consolas, monospace; font-size: 14px; color: var(--muted); }
 .sess-model { justify-self: start; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .sess-time { justify-self: start; font-size: 14px; color: var(--muted); }
@@ -331,7 +332,7 @@ const initialSessions = () => [
   { id: 'deae164b', account: '.claude-main', cwd: 'coders-hub', started: 660, since: 1, state: 'permission', control: true,
     prompt: '別のディレクトリを以下にしたいです。そこに必要なファイルをコピーできますか？',
     request: { kind: 'permission', tool: 'Bash', desc: 'List files in current directory', input: '{ "command": "ls" }' } },
-  { id: '844cd1f9', account: '.claude-main', cwd: 'coders-hub', started: 1100, since: 5, state: 'waiting', control: true,
+  { id: '844cd1f9', resumedFrom: 'b5e2c071', account: '.claude-main', cwd: 'coders-hub', started: 1100, since: 5, state: 'waiting', control: true,
     prompt: 'Bash で、spikes/sandbox/t10-12k.txt の中身を一字一句そのまま echo に入れて実行して' },
   { id: '7c9e1a22', account: '.claude-main', cwd: 'coders-hub', started: 95, since: 2, state: 'permission', control: true,
     prompt: '12,000 文字のファイルの中身をそのまま出力して',
@@ -556,7 +557,7 @@ const renderMain = () => {
   const composer = s.control
     ? '<textarea class="inst" id="inst" rows="1" placeholder="メッセージを入力"></textarea>'
     : '<textarea class="inst" id="inst" rows="1" disabled placeholder="閲覧のみ"></textarea>'
-  const statusLine = '<div class="status-line"><span class="sl-id">' + s.id.slice(0, 8) + '</span><span>' + (MODEL[s.id] ?? '—') + '</span><span>' + elapsed(s.since) + '</span>' + (s.state === 'waiting' ? '' : '<span class="state chip-' + s.state + '">' + SHORT[s.state] + '</span>') + '</div>'
+  const statusLine = '<div class="status-line"><span class="sl-id">' + s.id.slice(0, 8) + '</span>' + (s.resumedFrom ? '<span class="sl-resume">再開（元 ' + s.resumedFrom + '）</span>' : '') + '<span>' + (MODEL[s.id] ?? '—') + '</span><span>' + elapsed(s.since) + '</span>' + (s.state === 'waiting' ? '' : '<span class="state chip-' + s.state + '">' + SHORT[s.state] + '</span>') + '</div>'
   $('#main').innerHTML = '<div class="detail">' +
     '<div class="d-top"><div class="float"><button class="back" data-act="back" aria-label="一覧へ" title="一覧へ"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>' +
     '<div class="d-head"><h2>' + esc(s.cwd) + '</h2></div>' +

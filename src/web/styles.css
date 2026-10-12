@@ -67,8 +67,7 @@ button { cursor: pointer; }
 .quit-btn { padding: 2px 8px; font-size: 14px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; color: var(--text); }
 .quit-btn:hover:not(:disabled) { background: var(--bg); }
 .quit-btn:disabled { color: var(--muted); }
-.quit-note { margin: 2px 0 6px; line-height: 1.5; color: var(--muted); }
-.quit-actions { display: flex; gap: 6px; justify-content: flex-end; padding-bottom: 2px; }
+.panel-val { color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
 .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0; }
 .switch { position: relative; flex: none; width: 34px; height: 18px; padding: 0; border: 0; border-radius: 999px; background: var(--border); transition: background .12s; }
 .switch .knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .12s; }
@@ -198,6 +197,7 @@ button { cursor: pointer; }
 .dock textarea.inst:disabled::placeholder { color: var(--muted); }
 .status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 4px; font-size: 13px; color: var(--muted); }
 .status-line .sl-id { font-family: ui-monospace, Consolas, monospace; }
+.status-line .sl-resume { color: var(--muted); }
 .status-line .state { padding: 0 7px; border-radius: 999px; font-size: 13px; font-weight: 700; }
 .dock .to-bottom { position: absolute; right: max(16px, calc((100% - 860px) / 2 + 16px)); bottom: calc(100% + 10px); display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-height: 0; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
 .dock .to-bottom[hidden] { display: none; }
@@ -224,13 +224,10 @@ button { cursor: pointer; }
 }
 
 /* 会話（機能 004）: 発言・応答・ツールの行・質問と答え。画面の外の分は描画を省く */
-.talk > .msg, .talk > .tool-line { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+.talk > .msg, .talk > .tool-line, .talk > .tool-group { content-visibility: auto; contain-intrinsic-size: auto 64px; }
 .msg-time { margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); }
 .tag-src { padding: 0 6px; border-radius: 4px; font-size: 13px; background: var(--working-bg); color: var(--working); }
 .truncated { display: block; margin-top: 2px; font-size: 14px; color: var(--muted); }
-.tool-line { display: flex; align-items: center; gap: 8px; justify-self: start; max-width: 100%; padding: 1px 10px; border-radius: 6px; font-size: 14px; color: var(--muted); background: var(--surface2); }
-.tool-name { font-family: ui-monospace, Consolas, monospace; color: var(--text); }
-.tool-rejected .tool-result, .tool-error .tool-result { color: var(--waiting); font-weight: 600; }
 .qa .qa-item + .qa-item { margin-top: 4px; }
 .conv-note { margin: 0; text-align: center; font-size: 14px; color: var(--muted); }
 .conv-error { color: var(--waiting); }
@@ -265,3 +262,81 @@ button { cursor: pointer; }
 .md-table { border-collapse: collapse; font-size: 0.95em; }
 .md-table th, .md-table td { padding: 3px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: normal; white-space: nowrap; }
 .md-table th { background: var(--surface); font-weight: 700; }
+
+/* ツールの使用: 閉じた 1 行（ツール名・要点・結果・時刻）。クリックで開くと、実行したコマンド・ファイル名の全文が見える（出力は出さない） */
+.tool-line { justify-self: start; min-width: 0; max-width: 100%; border-radius: 6px; font-size: 14px; color: var(--muted); background: var(--surface2); }
+.tool-line[open] { justify-self: stretch; }
+.tool-line > summary { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 1px 10px; list-style: none; cursor: pointer; }
+.tool-line > summary::-webkit-details-marker { display: none; }
+.tool-line > .tl-row { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 1px 10px; }
+.tool-line > .tl-row::before { content: ''; flex: none; width: 5px; margin-right: 2px; }
+.tool-line > summary::before { content: ''; flex: none; width: 5px; height: 5px; margin-right: 2px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .12s; }
+.tool-line[open] > summary::before { transform: rotate(45deg); }
+.tool-line > summary:hover { color: var(--text); }
+.tool-line > summary:focus-visible { outline: 2px solid var(--working); outline-offset: 1px; border-radius: 6px; }
+.tool-name { flex: none; font-family: ui-monospace, Consolas, monospace; color: var(--text); }
+.tool-arg { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, Consolas, monospace; }
+.tool-result { flex: none; }
+.tool-error .tool-result, .tool-rejected .tool-result { color: var(--waiting); font-weight: 600; }
+.tool-running .tool-result { color: var(--working); font-weight: 600; }
+.tool-line .msg-time { flex: none; margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); }
+.tool-detail { padding: 0 10px 6px 29px; }
+.tool-detail .pre { margin: 0; padding: 0; max-height: 12em; border: 0; background: transparent; }
+/* 連続したツールの行は、グループにまとめる。閉じた 1 行（件数・ツール名・結果の内訳・時刻）。開くと、個別の行が並び、各行も開閉できる */
+.tool-group { justify-self: start; min-width: 0; max-width: 100%; border-radius: 6px; font-size: 14px; color: var(--muted); background: var(--surface2); }
+.tool-group[open] { justify-self: stretch; }
+.tool-group > summary { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 1px 10px; list-style: none; cursor: pointer; }
+.tool-group > summary::-webkit-details-marker { display: none; }
+.tool-group > summary::before { content: ''; flex: none; width: 5px; height: 5px; margin-right: 2px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .12s; }
+.tool-group[open] > summary::before { transform: rotate(45deg); }
+.tool-group > summary:hover { color: var(--text); }
+.tool-group > summary:focus-visible { outline: 2px solid var(--working); outline-offset: 1px; border-radius: 6px; }
+.tg-count { flex: none; color: var(--text); font-weight: 600; }
+.tg-names { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, Consolas, monospace; }
+.tg-sum { flex: none; }
+.tg-sum.warn { color: var(--waiting); font-weight: 600; }
+.tg-sum.run { color: var(--working); font-weight: 600; }
+.tool-group .msg-time { flex: none; margin-left: auto; font-size: 13px; font-weight: 400; color: var(--muted); }
+.tool-group-body { display: grid; gap: 0; padding: 0 4px 6px; }
+.tool-group-body > .tool-line { justify-self: stretch; background: transparent; }
+.tool-group-body > .tool-line > summary:hover { background: color-mix(in srgb, var(--text) 6%, transparent); border-radius: 4px; }
+
+/* 確認のモーダル（画面の中央。背景を暗くする）。外側のクリック・Esc で閉じる */
+.modal-back { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(8, 12, 20, .5); }
+.modal { width: min(380px, 100%); padding: 18px 18px 14px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
+.modal h2 { margin: 0 0 16px; font-size: 18px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-actions button { min-height: 38px; padding: 6px 18px; font-size: 15px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; color: var(--text); }
+.modal-actions .danger { border-color: transparent; background: var(--usage-hi); color: #fff; }
+.modal-actions button:focus-visible { outline: 2px solid var(--working); outline-offset: 2px; }
+/* 通知（メニュー）: 音量・ミュート・画面の点滅 */
+select { font: inherit; color: inherit; }
+select.sort-btn { padding: 2px 6px; min-width: 0; }
+/* フォーカス: ブラウザの既定の太い枠をやめ、細く薄い枠にする（キーボードで操作しているときも、場所が分かる程度） */
+select.sort-btn:focus, select.sort-btn:focus-visible { outline: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); outline-offset: 0; }
+.vol { display: inline-flex; align-items: center; gap: 8px; }
+.vol input[type="range"] { width: 96px; accent-color: var(--accent); }
+.vol input[type="range"]:disabled { opacity: .4; }
+.vol-num { min-width: 2.2em; text-align: right; font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+.sort-btn.mute-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; min-width: 0; padding: 3px 0; line-height: 0; }
+.mute-btn[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+/* 画面の点滅: 縁が、ぱっと付いて、ぱっと消える（なめらかに変えない）。0.67 秒ごとの切り替えで、2 秒間に 3 回（1 秒に 3 回を超えない）。
+   メニューの「画面の点滅」が ON なら、OS の「動きを減らす」設定にかかわらず、点滅する（ご自身の選択を優先する）。OFF にすれば、点滅しない */
+#flash { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+#flash.on { animation: edge-blink 2s step-end 1; }
+@keyframes edge-blink {
+  0%      { box-shadow: inset 0 0 0 8px var(--flash, var(--working)); }
+  16.67%  { box-shadow: none; }
+  33.33%  { box-shadow: inset 0 0 0 8px var(--flash, var(--working)); }
+  50%     { box-shadow: none; }
+  66.67%  { box-shadow: inset 0 0 0 8px var(--flash, var(--working)); }
+  83.33%, 100% { box-shadow: none; }
+}
+
+/* 設定（フィルター・ソート・メニューのパネルと、それを開くボタン）: 黒い文字・アイコン・塗りを、少し薄くする。ダークテーマは、そのまま */
+:root { --soft-ink: #4b5565; --soft-fill: #5a6475; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --soft-ink: var(--text); --soft-fill: var(--accent); } }
+:root[data-theme="dark"] { --soft-ink: var(--text); --soft-fill: var(--accent); }
+.panel, .panel .sort-btn, .panel .quit-btn, .panel select { color: var(--soft-ink); }
+.menu-btn[aria-expanded="true"], .mute-btn[aria-pressed="true"] { background: var(--soft-fill); border-color: var(--soft-fill); }
+.vol input[type="range"] { accent-color: var(--soft-fill); }.modal-note { margin: 0 0 14px; line-height: 1.6; color: var(--muted); }

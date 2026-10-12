@@ -200,3 +200,18 @@ describe('表示用の整形', () => {
     assert.equal(formatPrompt('a'.repeat(80)), 'a'.repeat(80))
   })
 })
+
+describe('パネルの排他（AC-UI-32）', () => {
+  it('フィルター・ソートを開くとメニューが閉じ、メニューを開くとフィルター・ソートが閉じる。閉じるだけなら、もう一方は、そのまま', () => {
+    const ui = { selected: null, view: 'list', opts: false, menu: false, quit: false, collapsed: new Set() }
+    const opened = applyUiPatch(ui, { menu: true })
+    assert.deepEqual([opened.menu, opened.opts], [true, false])
+    const swapped = applyUiPatch(opened, { opts: true })
+    assert.deepEqual([swapped.menu, swapped.opts], [false, true])
+    const back = applyUiPatch(swapped, { menu: true })
+    assert.deepEqual([back.menu, back.opts], [true, false])
+    const closed = applyUiPatch({ ...ui, menu: true }, { menu: false })
+    assert.deepEqual([closed.menu, closed.opts], [false, false])
+    assert.equal(applyUiPatch({ ...ui, opts: true }, { quit: true }).opts, true, '終了のモーダルを開いても、パネルは、そのまま')
+  })
+})

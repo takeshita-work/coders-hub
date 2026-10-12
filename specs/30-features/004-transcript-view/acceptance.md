@@ -10,7 +10,11 @@
 | AC-007-1 直近 20 件（ツールの行は数えない） | `conversation` / `hub-conversation` / `web-conversation` | 手順 1 |
 | AC-007-2 発言・応答の区別、時刻 | `conversation` / `web-conversation` | 手順 1 |
 | AC-007-3 ダッシュボードの指示の目印・「届きました」の重複除去 | `conversation` / `web-conversation` | 手順 3 |
-| AC-007-4 ツールの 1 行（成功・拒否・エラー）、入力・出力・思考は出ない | `conversation` / `web-conversation` | 手順 1・4 |
+| AC-007-4 ツールの 1 行（コマンド・ファイル名・結果・時刻）、開くと全文。出力・思考は出ない | `conversation` / `web-conversation` | 手順 1・4 |
+| AC-007-22 連続したツールのグループ | `web-conversation` | 手順 1 |
+| AC-007-23 開閉の状態が、更新後も保たれる | `web-conversation` | 手順 1 |
+| AC-007-24 Hub が返す要点・全文（ツールごと。4,000 文字で切る。出力は返さない） | `conversation` | — |
+| AC-007-25 結果の行・送った指示が、時刻に合った位置に入る | `web-conversation` | 手順 3 |
 | AC-007-5 AskUserQuestion の質問と答え | `conversation` / `web-conversation` | 手順 4 |
 | AC-007-6 応答の Markdown の整形。HTML は文字のまま | `markdown` / `web-conversation` | 手順 1・8 |
 | AC-007-7 4,000 文字を超える発言の省略 | `conversation` / `web-conversation` | 手順 5 |

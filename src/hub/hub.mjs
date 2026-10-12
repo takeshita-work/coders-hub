@@ -13,6 +13,7 @@ import { createInstructions, InstructionError } from './instructions.mjs'
 import { createInstructionMonitor } from './instruction-monitor.mjs'
 import { createRequests, RequestError } from './requests.mjs'
 import { DEFAULT_LIMIT, MAX_LIMIT, locateTranscript, readConversation } from './conversation.mjs'
+import { VERSION } from '../cli/version.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const MAX_BODY_BYTES = 1_000_000
@@ -98,6 +99,8 @@ export const createHub = ({
   staticDir = path.resolve(here, '../../dist/web'),
   // 画面のファイルの配信元。{ get(相対パス) => Buffer | null }。配布版は、exe に埋め込んだもの。なければ staticDir のフォルダを読む
   staticAssets = null,
+  // 画面のメニューに出す、Hub のバージョン（snapshot に含める。AC-UI-33）。省略すると、配布版・開発版の VERSION
+  version = VERSION,
   // 画面の「Hub を終了」(POST /api/shutdown) で呼ぶ。応答を返したあとに呼ぶ。なければ、終了の要求は 501（ADR 0020）
   onShutdown = null,
   sweepIntervalMs = 5000,
@@ -431,7 +434,7 @@ export const createHub = ({
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
       ws.on('error', () => {})
-      ws.send(JSON.stringify({ type: 'snapshot', now: Date.now(), sessions: store.list() }))
+      ws.send(JSON.stringify({ type: 'snapshot', now: Date.now(), version, sessions: store.list() }))
     })
   })
 

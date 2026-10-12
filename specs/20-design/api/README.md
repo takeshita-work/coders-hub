@@ -90,14 +90,15 @@
 - 応答 200: `{ "messages": [...], "cursor": <位置> | null }`。ヘッダー `ETag`（ファイルの更新時刻とサイズ）、`Cache-Control: no-store`。`messages` は古い順。`cursor` は、さらに前を読むための位置（先頭まで読んだら `null`）
 - `If-None-Match` が一致すれば 304（本文なし。`before` がない最新のページのときだけ）
 - エラー: 403、404（`not-found`: セッションなし、`no-transcript`: 会話の記録がない）、400（`invalid`: `limit`・`before` が不正）、500（`unreadable`: 読めない）
-- メッセージ: `{ id, at, role: "user" | "assistant" | "tool" | "question", text?, truncated?, source?: "dashboard", instructionId?, tool?: { name, result: "ok" | "rejected" | "error" | null }, answers?: [{ question, answer }] }`。`text` は 4,000 文字まで（超えたら `truncated: true`）。`source: "dashboard"` は、ダッシュボードから送った指示（`instructionId` は指示の ID）。思考・ツールの入力と出力・サブエージェント・システムの記録は含めない
+- メッセージ: `{ id, at, role: "user" | "assistant" | "tool" | "question", text?, truncated?, source?: "dashboard", instructionId?, tool?: { name, result: "ok" | "rejected" | "error" | null, summary?, detail? }, answers?: [{ question, answer }] }`。`text` は 4,000 文字まで（超えたら `truncated: true`）。`source: "dashboard"` は、ダッシュボードから送った指示（`instructionId` は指示の ID）。思考・ツールの入力と出力・サブエージェント・システムの記録は含めない
+- `tool.summary`: 閉じた行に出す要点（Bash はコマンドの 1 行目、Read・Edit・Write はパス、Grep は `"検索語" in パス`、など。ADR 0029）。`tool.detail`: 開いたときに出す全文。どちらも 4,000 文字で切る。要点が取れないツールは、どちらもなし。ツールの出力（結果の中身）は、返さない
 
 ### WebSocket `/ws`
 `Origin` ヘッダーがあるときは、`Host` と同じものだけ受け付ける（別サイトのページからの接続を防ぐ）。Hub からブラウザへの一方向（ブラウザからのメッセージは使わない）。
 
 | `type` | 内容 | いつ |
 |---|---|---|
-| `snapshot` | `{ now, sessions: [Session] }` | 接続した直後。再接続のたびに取り直す |
+| `snapshot` | `{ now, version, sessions: [Session] }`（`version`: Hub のバージョン。メニューに出す） | 接続した直後。再接続のたびに取り直す |
 | `added` | `{ session }` | セッションが増えたとき |
 | `updated` | `{ session }` | 見える項目が変わったとき |
 | `removed` | `{ sessionId }` | セッションが外れたとき |

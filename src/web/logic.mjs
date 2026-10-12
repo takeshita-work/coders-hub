@@ -110,6 +110,9 @@ export const sidebarAllowRequest = (session) =>
 export const applyUiPatch = (ui, patch) => {
   const { toggle, ...rest } = patch
   const next = { ...ui, ...rest }
+  // フィルター・ソートとメニューのパネルは、同時に開かない。開くときは、もう片方を閉じる（AC-UI-32）
+  if (rest.opts === true) next.menu = false
+  if (rest.menu === true) next.opts = false
   if (toggle !== undefined) {
     next.collapsed = new Set(ui.collapsed)
     if (!next.collapsed.delete(toggle)) next.collapsed.add(toggle)
@@ -393,4 +396,75 @@ export const formatClock = (at) => {
   if (typeof at !== 'number') return ''
   const d = new Date(at)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// ---- 会話の組み立て（機能 004。ADR 0029）----
+
+// 会話ログのメッセージと、画面のできごと（許可・質問の結果の行・送った指示）を、時刻の順に 1 本にする（AC-007-25）。
+//  - events: [{ at, node, key }]。at がないものは、一番最後に置く
+//  - hasMoreBefore: まだ読み込んでいない、前の会話があるとき。最初に読み込んだメッセージより前に起きたできごとは、
+//    読み込むまで出さない（出すと、古い結果の行が、会話の一番上に居座る）
+//  - 同じ時刻なら、メッセージのあとに置く
+export const mergeTimeline = (messages, events, { hasMoreBefore = false } = {}) => {
+  const sorted = events.map((e) => ({ ...e, at: typeof e.at === 'number' ? e.at : Infinity })).sort((a, b) => a.at - b.at)
+  const firstAt = messages.find((m) => typeof m.at === 'number')?.at
+  let i = 0
+  if (hasMoreBefore && typeof firstAt === 'number') while (i < sorted.length && sorted[i].at < firstAt) i++
+  const out = []
+  for (const message of messages) {
+    if (typeof message.at === 'number') while (i < sorted.length && sorted[i].at < message.at) out.push({ type: 'event', ...sorted[i++] })
+    out.push({ type: 'message', message })
+  }
+  while (i < sorted.length) out.push({ type: 'event', ...sorted[i++] })
+  return out
+}
+
+// 連続した 2 件以上のツールの行を、1 つのグループにする（AC-007-22）。間に発言・応答・質問・できごとが入れば、別のグループ。1 件だけは、まとめない
+export const groupTools = (items) => {
+  const out = []
+  let run = []
+  const flush = () => {
+    if (run.length >= 2) out.push({ type: 'toolgroup', id: `g-${run[0].message.id}`, messages: run.map((r) => r.message) })
+    else out.push(...run)
+    run = []
+  }
+  for (const item of items) {
+    if (item.type === 'message' && item.message.role === 'tool') run.push(item)
+    else { flush(); out.push(item) }
+  }
+  flush()
+  return out
+}
+
+// 末尾のツールの行（あとに発言や応答がない）は、実行中として出す。実行中のメッセージの id の集まり
+export const runningToolIds = (messages) => {
+  const tailStart = messages.findLastIndex((m) => m.role !== 'tool') + 1
+  return new Set(messages.slice(tailStart).filter((m) => m.role === 'tool' && !m.tool.result).map((m) => m.id))
+}
+
+// ツールの行の状態: ok | rejected | error | running | none（結果なし）
+export const toolStatus = (message, running) => message.tool.result ?? (running ? 'running' : 'none')
+export const TOOL_STATUS_LABEL = { ...TOOL_RESULT_LABEL, running: '実行中', none: '結果なし' }
+
+// 閉じた行に出す要点と、開いたときの全文。全文が要点と同じなら、開く意味がない（開閉しない。AC-007-4）
+export const toolSummaryOf = (message) => message.tool.summary ?? ''
+export const toolHasMore = (message) => typeof message.tool.detail === 'string' && message.tool.detail !== toolSummaryOf(message)
+
+// グループの閉じた 1 行: 件数・ツール名（回数）・結果の内訳・時刻の範囲（AC-007-22）
+export const summarizeToolGroup = (messages, running = new Set()) => {
+  const names = new Map()
+  const tally = { ok: 0, error: 0, rejected: 0, running: 0 }
+  for (const m of messages) {
+    names.set(m.tool.name, (names.get(m.tool.name) ?? 0) + 1)
+    const status = toolStatus(m, running.has(m.id))
+    if (status in tally) tally[status] += 1
+  }
+  const times = messages.map((m) => m.at).filter((t) => typeof t === 'number')
+  return {
+    count: messages.length,
+    names: [...names].map(([name, count]) => ({ name, count })),
+    tally,
+    from: times.length ? times[0] : null,
+    to: times.length ? times[times.length - 1] : null,
+  }
 }

@@ -104,3 +104,19 @@ describe('shutdownHub（AC-011-24, 25）', () => {
     assert.equal((await clientWith(async () => { throw new Error('x') }).shutdownHub()).reason, 'Hub に接続できません')
   })
 })
+
+describe('Hub のバージョン（AC-UI-33）', () => {
+  it('スナップショットのバージョンを、状態に持つ。届く前は null。ないスナップショットでは、前の値を消さない', () => {
+    const t = setup()
+    t.client.start()
+    assert.equal(t.last().version, null)
+    const ws = t.sockets[0]
+    ws.open()
+    ws.receive({ type: 'snapshot', now: 1, version: '1.2.3', sessions: [] })
+    assert.equal(t.last().version, '1.2.3')
+    ws.receive({ type: 'snapshot', now: 2, sessions: [] })
+    assert.equal(t.last().version, '1.2.3', 'バージョンのない（古い Hub の）スナップショットでも、消さない')
+    ws.receive({ type: 'snapshot', now: 3, version: 5, sessions: [] })
+    assert.equal(t.last().version, '1.2.3', '文字列でない値は、使わない')
+  })
+})

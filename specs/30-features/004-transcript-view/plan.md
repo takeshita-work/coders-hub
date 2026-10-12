@@ -20,10 +20,10 @@ Hub に、会話ログを読む部品（`conversation.mjs`）と、取得 API（
 |---|---|
 | `user`（本文が文字列、または `text` ブロック） | 利用者の発言。`isSidechain` はサブエージェントなので除く。`isMeta` は除くが、`origin.kind` が `channel` のものは、ダッシュボードから送った指示として出す（本文は `<channel source="coders-hub" id="…">\n本文\n</channel>`。ID を取り出す） |
 | `assistant` の `text` ブロック | Claude の応答 |
-| `assistant` の `tool_use` | ツールの使用（名前）。`AskUserQuestion` は質問文（`input.questions`） |
+| `assistant` の `tool_use` | ツールの使用（名前・要点・全文）。要点と全文は、入力（`input`）から取り出す（ADR 0029。Bash はコマンド、Read・Edit・Write はパス、Grep は検索語とパス、など）。`AskUserQuestion` は質問文（`input.questions`） |
 | `user` の `tool_result`（`tool_use_id`、`is_error`） | 対応するツール行の結果。`is_error` が真で、本文に `doesn't want to proceed`（実機: `The user doesn't want to proceed with this tool use. The tool use was rejected …`）または `User rejected tool use`（ADR 0007 の記録）を含めば「拒否」、そのほかの `is_error` は「エラー」、それ以外は「成功」。文言が変わっても、「エラー」と表示されるだけで害はない。`AskUserQuestion` は答え（レコードの `toolUseResult.answers`。質問文 → 答え）を質問に添える |
 
-捨てるもの: `thinking`、ツールの入力・出力の本文、`system`・`attachment`・`last-prompt` などの記録、`<command-name>`・`<local-command-…>` などのスラッシュコマンドの記録（本文が `<command-` または `<local-command` で始まる）、中断の記録（`[Request interrupted by user…`）。不明なレコードは無視する（NFR-008）。
+捨てるもの: `thinking`、ツールの出力（結果の中身）。入力は、要点と全文だけを残す（ADR 0029）、`system`・`attachment`・`last-prompt` などの記録、`<command-name>`・`<local-command-…>` などのスラッシュコマンドの記録（本文が `<command-` または `<local-command` で始まる）、中断の記録（`[Request interrupted by user…`）。不明なレコードは無視する（NFR-008）。
 
 ## 部品
 
@@ -32,9 +32,9 @@ Hub に、会話ログを読む部品（`conversation.mjs`）と、取得 API（
 | `src/hub/conversation.mjs`（新規） | `parseConversation(lines)`: レコードの並びから、メッセージの並びを作る（上の表）。`readConversation(file, { before, limit })`: ファイルを末尾から読む。`locateTranscript(session)`: 会話ログの場所を決める |
 | `src/hub/hub.mjs` | `GET /api/sessions/:sessionId/conversation`。保護（Host・Origin・独自ヘッダー）を読み取りにも適用する |
 | `src/web/client.mjs` | `fetchConversation(sessionId, { before, etag })`（`Cache-Control` を使わず、ETag は画面のメモリ内で持つ） |
-| `src/web/logic.mjs` | 取得した結果の統合（最新ページの置き換え、古いページの前置き）、送った指示の重複除去 |
+| `src/web/logic.mjs` | 取得した結果の統合（最新ページの置き換え、古いページの前置き）、送った指示の重複除去 。時刻順の並び（`mergeTimeline`）・ツールのグループ化（`groupTools`・`summarizeToolGroup`）・実行中の判定（`runningToolIds`） |
 | `src/web/markdown.mjs`（新規） | 応答の Markdown を React の要素に整形する（`marked` の字句解析のみ使う。HTML 文字列を作らない。ADR 0017） |
-| `src/web/components.mjs` | 会話の表示（発言・応答・ツール行・質問と答え・自動の読み込み・読み込めないときの表示） |
+| `src/web/components.mjs` | 会話の表示（発言・応答・ツール行・質問と答え・自動の読み込み・読み込めないときの表示） 。ツールの行（`ToolRow`。閉じた 1 行・開くと全文）・グループ（`ToolGroup`）。結果の行・送った指示は、会話のメッセージと時刻の順に並べる |
 | `src/web/styles.css` | 会話の見た目（試作のものを元に）。件数が多いときの描画の工夫 |
 
 ## 読み方（`readConversation`）
@@ -57,7 +57,7 @@ Hub に、会話ログを読む部品（`conversation.mjs`）と、取得 API（
 - 保護: `Host`・`Origin`・`X-Coders-Hub: 1`（ADR 0012 の検査を、読み取りにも使う。通らなければ 403）
 - 応答: 200 `{ messages, cursor }`、ヘッダー `ETag`・`Cache-Control: no-store`。`If-None-Match` が一致すれば 304（本文なし。`before` がない最新ページのときだけ）
 - エラー: 404（セッションなし・`no-transcript`）、400（`limit`・`before` が不正）、500（`unreadable`。読めない・形式が想定外）。エラーの本文は `{ error, message }`
-- メッセージの形: `{ id, at, role: 'user' | 'assistant' | 'tool' | 'question', text?, truncated?, source?: 'dashboard', instructionId?, tool?: { name, result: 'ok' | 'rejected' | 'error' | null }, answers?: [{ question, answer }] }`
+- メッセージの形: `{ id, at, role: 'user' | 'assistant' | 'tool' | 'question', text?, truncated?, source?: 'dashboard', instructionId?, tool?: { name, summary?, detail?, truncated?, result: 'ok' | 'rejected' | 'error' | null }, answers?: [{ question, answer }] }`
 
 ## 画面
 - 取得は、詳細を開いている間（`document.hidden` でないとき）、2 秒ごとに、最新ページへ `If-None-Match` つきで行う。304 なら何もしない。詳細を閉じる・別のセッションに移るときは、止める

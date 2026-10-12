@@ -7,6 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { WebSocket } from 'ws'
 import { createHub } from '../src/hub/hub.mjs'
+import { VERSION } from '../src/cli/version.mjs'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ACCOUNT = 'C:\\Users\\dev\\.claude-a'
@@ -103,6 +104,7 @@ describe('WebSocket への配信', () => {
     const c = await connect()
     const snap = await c.waitFor((m) => m.type === 'snapshot')
     assert.deepEqual(snap.sessions, [])
+    assert.equal(snap.version, VERSION, 'AC-UI-33: スナップショットに、Hub のバージョンが入る')
 
     const t0 = Date.now()
     assert.equal((await hook('SessionStart')).status, 204)

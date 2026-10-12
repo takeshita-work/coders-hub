@@ -213,28 +213,120 @@ describe('サイドバーの操作（AC-UI-4〜6, 9, 17, 18）', () => {
     assert.deepEqual(patches, [{ onlyControl: true }, { dirSort: 'desc' }, { sessSort: 'late' }])
   })
 
-  it('AC-UI-31, AC-011-25: Hub を終了: 押すと確認が出て、「やめる」では何も呼ばれず、「終了する」で呼ばれて完了を表示する', async () => {
-    let calls = 0
-    const onShutdown = async () => { calls += 1; return { ok: true } }
-    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), opts: true }, onShutdown }))
-    fireEvent.click(screen.getByRole('button', { name: '終了…' }))
-    assert.match(document.body.textContent, /動いているセッションは、Hub を起動し直すまで一覧から消えます/)
-    fireEvent.click(screen.getByRole('button', { name: 'やめる' }))
-    assert.equal(calls, 0)
-    assert.ok(screen.getByRole('button', { name: '終了…' }), '確認が閉じる')
-    fireEvent.click(screen.getByRole('button', { name: '終了…' }))
-    fireEvent.click(screen.getByRole('button', { name: '終了する' }))
-    await waitFor(() => assert.match(document.body.textContent, /Hub を終了しました/))
-    assert.equal(calls, 1)
+  it('AC-UI-32: ヘッダーに、フィルター・ソートとは別に、メニューのボタンがある。押すと、メニューが開く（もう一方は閉じる）', () => {
+    const patches = []
+    render(app(state([sess('s1', { state: 'working' })]), { onUi: (p) => patches.push(p) }))
+    assert.ok(screen.getByRole('button', { name: 'フィルター・ソート' }))
+    fireEvent.click(screen.getByRole('button', { name: 'メニュー' }))
+    assert.deepEqual(patches, [{ menu: true }])
   })
 
-  it('AC-UI-31: 終了を要求できなかったときは、理由を確認の行に出し、やり直せる', async () => {
-    const onShutdown = async () => ({ ok: false, reason: 'Hub に接続できません' })
-    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), opts: true }, onShutdown }))
+  it('AC-UI-33: メニューに、Hub のバージョンが出る。バージョンが届く前は「—」', () => {
+    const open = { ...defaultUi(), menu: true }
+    const { rerender } = render(app(state([sess('s1', { state: 'working' })], { version: '1.2.3' }), { ui: open }))
+    assert.equal(document.querySelector('[data-version]').textContent, '1.2.3')
+    rerender(app(state([sess('s1', { state: 'working' })]), { ui: open }))
+    assert.equal(document.querySelector('[data-version]').textContent, '—')
+  })
+
+  it('AC-UI-31: メニューの「終了…」を押すと、確認のモーダルを開く（Hub は、まだ終了しない）', () => {
+    const patches = []
+    let calls = 0
+    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), menu: true }, onUi: (p) => patches.push(p), onShutdown: async () => { calls += 1; return { ok: true } } }))
     fireEvent.click(screen.getByRole('button', { name: '終了…' }))
+    assert.deepEqual(patches, [{ quit: true }])
+    assert.equal(calls, 0)
+  })
+
+  it('AC-UI-31, 34, AC-011-25: モーダル: 「やめる」にフォーカスがあり、「やめる」・Esc・外側のクリックで閉じる。中のクリックでは閉じない', () => {
+    const patches = []
+    let calls = 0
+    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), quit: true }, onUi: (p) => patches.push(p), onShutdown: async () => { calls += 1; return { ok: true } } }))
+    const dialog = screen.getByRole('dialog')
+    assert.equal(dialog.getAttribute('aria-modal'), 'true')
+    assert.match(dialog.textContent, /Hub を終了しますか？/)
+    assert.equal(document.activeElement, screen.getByRole('button', { name: 'やめる' }), 'フォーカスは「やめる」')
+    fireEvent.mouseDown(dialog)
+    fireEvent.mouseDown(screen.getByText('Hub を終了しますか？'))
+    assert.deepEqual(patches, [], '中のクリックでは閉じない')
+    fireEvent.click(screen.getByRole('button', { name: 'やめる' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.mouseDown(document.querySelector('[data-modal="quit"]'))
+    assert.deepEqual(patches, [{ quit: false }, { quit: false }, { quit: false }])
+    assert.equal(calls, 0, '閉じるだけでは、Hub を終了しない')
+  })
+
+  it('AC-UI-31: モーダルの「終了する」で、Hub の終了を要求し、完了を表示する（閉じるボタンで閉じる）', async () => {
+    const patches = []
+    let calls = 0
+    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), quit: true }, onUi: (p) => patches.push(p), onShutdown: async () => { calls += 1; return { ok: true } } }))
+    fireEvent.click(screen.getByRole('button', { name: '終了する' }))
+    await waitFor(() => assert.match(screen.getByRole('dialog').textContent, /Hub を終了しました/))
+    assert.equal(calls, 1)
+    assert.equal(screen.getByRole('status').textContent, '起動するには coders-hub を実行してください。')
+    fireEvent.click(screen.getByRole('button', { name: '閉じる' }))
+    assert.deepEqual(patches, [{ quit: false }])
+  })
+
+  it('AC-UI-31: 終了を要求できなかったときは、理由をモーダルに出し、やり直せる', async () => {
+    const onShutdown = async () => ({ ok: false, reason: 'Hub に接続できません' })
+    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), quit: true }, onShutdown }))
     fireEvent.click(screen.getByRole('button', { name: '終了する' }))
     await waitFor(() => assert.equal(screen.getByRole('alert').textContent, 'Hub に接続できません'))
     assert.ok(screen.getByRole('button', { name: '終了する' }), 'やり直せる')
+  })
+
+  describe('メニューの通知の設定（AC-NT-9）', () => {
+    const settings = { mute: false, volume: 60, blink: true, alertSec: 15 }
+    const open = (over = {}, extra = {}) => {
+      const calls = { settings: [], previews: [] }
+      render(app(state([sess('s1', { state: 'working' })]), {
+        ui: { ...defaultUi(), menu: true },
+        notify: { settings: { ...settings, ...over }, onSettings: (p) => calls.settings.push(p), onPreview: (k) => calls.previews.push(k) },
+        ...extra,
+      }))
+      return calls
+    }
+
+    it('音量・ミュート・画面の点滅・続ける時間が、いまの設定で表示される', () => {
+      open()
+      assert.equal(screen.getByRole('slider', { name: '音量' }).value, '60')
+      assert.equal(screen.getByRole('button', { name: 'ミュート' }).getAttribute('aria-pressed'), 'false')
+      assert.equal(screen.getByRole('switch', { name: '画面の点滅' }).getAttribute('aria-checked'), 'true')
+      assert.equal(screen.getByRole('combobox', { name: '点滅と音を続ける時間' }).value, '15')
+      assert.deepEqual([...screen.getByRole('combobox', { name: '点滅と音を続ける時間' }).options].map((o) => o.textContent), ['5 秒', '15 秒', '30 秒', '1 分', '操作するまで'])
+    })
+
+    it('ミュートのボタン・スライダー・スイッチ・選択が、設定の変更として届く', () => {
+      const calls = open()
+      fireEvent.click(screen.getByRole('button', { name: 'ミュート' }))
+      fireEvent.change(screen.getByRole('slider', { name: '音量' }), { target: { value: '80' } })
+      fireEvent.click(screen.getByRole('switch', { name: '画面の点滅' }))
+      fireEvent.change(screen.getByRole('combobox', { name: '点滅と音を続ける時間' }), { target: { value: '0' } })
+      assert.deepEqual(calls.settings, [{ mute: true }, { volume: 80 }, { blink: false }, { alertSec: 0 }])
+      assert.deepEqual(calls.previews, [], '点滅を OFF にするときは、試しに光らせない')
+    })
+
+    it('スライダーを動かし終えたら、試しに鳴る。点滅を ON にしたら、試しに光る', () => {
+      const calls = open()
+      fireEvent.pointerUp(screen.getByRole('slider', { name: '音量' }))
+      fireEvent.keyUp(screen.getByRole('slider', { name: '音量' }), { key: 'ArrowRight' })
+      assert.deepEqual(calls.previews, ['sound', 'sound'])
+      cleanup()
+      const off = open({ blink: false })
+      fireEvent.click(screen.getByRole('switch', { name: '画面の点滅' }))
+      assert.deepEqual(off.settings, [{ blink: true }])
+      assert.deepEqual(off.previews, ['flash'])
+    })
+
+    it('ミュートのとき、スライダーは無効。ミュートで点滅も OFF なら、続ける時間も無効', () => {
+      open({ mute: true })
+      assert.equal(screen.getByRole('slider', { name: '音量' }).disabled, true)
+      assert.equal(screen.getByRole('combobox', { name: '点滅と音を続ける時間' }).disabled, false, '点滅がまだ ON')
+      cleanup()
+      open({ mute: true, blink: false })
+      assert.equal(screen.getByRole('combobox', { name: '点滅と音を続ける時間' }).disabled, true)
+    })
   })
 
   it('AC-UI-2: 詳細の戻るボタンで一覧に戻る', () => {
