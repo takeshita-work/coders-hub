@@ -1,6 +1,6 @@
 # 0018: 配布は、単一の exe（Node の Single Executable Applications）を、GitHub のリリースで行う
 
-- ステータス: Accepted
+- ステータス: Accepted（zip で配る部分は、ADR 0022 で置き換え）
 - 日付: 2026-10-11
 
 ## 背景

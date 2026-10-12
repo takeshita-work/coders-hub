@@ -35,3 +35,4 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0019 | ポートは設定ファイル（config.json）でも変えられるようにし、既定を 47765 / 47766 にする | Accepted |
 | 0020 | Hub の起動をチャネルサーバーから切り離し、exe のダブルクリックでウィンドウなしに起動する | Accepted |
 | 0021 | 設定ファイル（config.json）は、coders-hub.exe と同じフォルダに置く | Accepted |
+| 0022 | 配布物は、zip にせず、exe などを個別の資産としてリリースに添付する | Accepted |

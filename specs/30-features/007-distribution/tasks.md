@@ -22,13 +22,13 @@
 
 ## フェーズ 3: ビルド
 - [x] T3-1 `scripts/build-exe.mjs`: 束ね・blob・注入・動作確認（AC-011-5・6）
-- [x] T3-2 配布物の組み立て（zip・README・LICENSE・SHA256SUMS）（AC-011-2・3）
+- [x] T3-2 配布物の組み立て（zip・README・LICENSE・SHA256SUMS）（AC-011-2・3）。のちに、zip をやめて個別の資産にした（ADR 0022。T4d-1）
 
 ## フェーズ 4: 公開の準備
 - [x] T4-1 ライセンスを決め（MIT）、`LICENSE` を置く。配布物に `THIRD_PARTY_NOTICES.txt` を入れる
 - [x] T4-2 公開前の確認（履歴を含む、秘密情報・個人情報・個人のパス・アカウント名）→ 確認は完了（`pre-release-check.md`）。秘密情報はなし。個人名・アカウント名は、A（作業ツリーだけ置き換え）で対応した
 - [x] T4-3 `.github/workflows/release.yml`（タグ・バージョン一致・テスト・リリースをドラフトで作成して公開）（AC-011-1・4）
-- [x] T4-4 利用者向けの README（AC-011-14。`README.md` と、zip の `README.txt`）
+- [x] T4-4 利用者向けの README（AC-011-14。`README.md` と、リリースの `README.txt`）
 
 ## フェーズ 4b: ポートの設定ファイル（ADR 0019）
 - [x] T4b-1 `src/shared/config.mjs`: 設定ファイル（exe と同じフォルダの `config.json`。ADR 0021）の読み込み、優先順位（環境変数 > ファイル > 既定）、既定を 47765 / 47766 に（AC-011-15〜19）
@@ -44,6 +44,11 @@
 - [x] T4c-6 文書: README・`docs/setup.md`・`docs/release-readme.txt`・設計（architecture・security・api）
 - [x] T4c-7 実機（ビルドした exe）: ダブルクリック相当でウィンドウなしの Hub が起動し、2 回目は何もせず、`/api/shutdown` で終了し、再起動されない
 - [ ] T4c-8 本物の `claude` で、GUI の exe を使ったフック・チャネルサーバー（AC-011-12 に含む）
+
+## フェーズ 4d: 個別の資産での配布（ADR 0022）
+- [x] T4d-1 `scripts/package-release.mjs`: zip をやめ、`dist/release/` に、`coders-hub.exe`・`config.example.json`・`README.txt`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` を並べる（AC-011-2・3）
+- [x] T4d-2 `release.yml`: `dist/release/*` を添付する（AC-011-1）
+- [x] T4d-3 `config.example.json` を追加（読まれない見本。上書きの懸念を避ける）。README・`release-readme.txt`・`setup.md` の入手と更新の手順
 
 ## フェーズ 5: 確認
 - [x] T5-1 テスト（サブコマンド・アセット配信・設定の生成・自動起動）（AC-011-5〜11）

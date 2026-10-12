@@ -20,7 +20,7 @@
 
 ## 入れ方（配布版。Node.js は要りません）
 
-1. [リリース](https://github.com/takeshita-work/coders-hub/releases)から、`coders-hub-<バージョン>-win-x64.zip` をダウンロードして、展開します。`coders-hub.exe` を、好きな場所に置きます（置いたあとは、移動しないでください。設定に、この exe のパスを書きます）。
+1. [リリース](https://github.com/takeshita-work/coders-hub/releases)から、`coders-hub.exe` をダウンロードします（zip ではなく、exe そのものです）。書き込めるフォルダ（`Program Files` 以外）に置きます（置いたあとは、移動しないでください。設定に、この exe のパスを書きます）。同じ場所に、`README.txt`・`config.example.json`・`SHA256SUMS.txt` などもあります。ブラウザが「一般的にダウンロードされていない」と警告したときは、「保持する」を選びます。
 2. Windows の SmartScreen が警告したときは、「詳細情報」→「実行」を選びます（この exe は署名していません）。SHA-256 は、`SHA256SUMS.txt` と、次のコマンドの結果を見比べて確認できます。
    ```powershell
    Get-FileHash .\coders-hub.exe -Algorithm SHA256
@@ -62,7 +62,7 @@
 ### Hub の終了・更新・アンインストール
 
 - **終了**: 画面の「フィルター・ソート」のパネルの最下段にある「Hub を終了」を押します（確認が出ます）。ほかに、タスク マネージャーで `coders-hub.exe` を終了できます。終了しても、claude は Hub を起動し直しません。
-- **更新**: Hub を終了してから、新しいリリースの zip を展開し、`coders-hub.exe` を置き換えます。もう一度、ダブルクリックで起動します。
+- **更新**: Hub を終了してから、新しいリリースの `coders-hub.exe` をダウンロードして、置き換えます。`config.json` は触りません。もう一度、ダブルクリックで起動します。
 - **アンインストール**: Hub を終了し、claude の設定から、追加したフックと MCP の設定を消して、`coders-hub.exe` を削除します。必要なら、`config.json`（exe と同じフォルダ）と、`%LOCALAPPDATA%\coders-hub\`（ログ）も削除します。
 
 ### 困ったとき
@@ -101,7 +101,7 @@ npm run build        # 画面をビルド（dist/web）
 npm start            # Hub を前面で起動（http://127.0.0.1:47766/）
 npm test             # テスト（node:test）
 npm run build:exe    # 配布版の exe を作る（dist/exe/coders-hub.exe）
-npm run package      # 配布物の zip を作る（dist/release/）
+npm run package      # 配布物のファイルを作る（dist/release/）
 node scripts/print-setup.mjs   # claude に入れる設定を表示（開発版。node で起動する形）
 ```
 
@@ -120,7 +120,7 @@ node scripts/print-setup.mjs   # claude に入れる設定を表示（開発版�
 
 ## ライセンス
 
-[MIT ライセンス](LICENSE)です。配布版（exe）に含まれる Node.js と npm パッケージのライセンス表示は、zip の `THIRD_PARTY_NOTICES.txt` にあります。
+[MIT ライセンス](LICENSE)です。配布版（exe）に含まれる Node.js と npm パッケージのライセンス表示は、リリースの資産 `THIRD_PARTY_NOTICES.txt` にあります。
 
 ## 免責
 

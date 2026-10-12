@@ -1,4 +1,4 @@
-# リリース（機能 007、ADR 0018）: タグ v<バージョン> を push すると、テスト・exe の作成・zip 化を行い、GitHub のリリースに添付する。
+# リリース（機能 007、ADR 0018・0022）: タグ v<バージョン> を push すると、テスト・exe の作成を行い、GitHub のリリースに個別の資産として添付する。
 #   使い方: package.json の version を上げてコミットし、git tag v<バージョン> && git push origin v<バージョン>
 # リリースは、ドラフトで作り、すべて添付できてから公開する（失敗したときに、中途半端なリリースを残さない）。
 name: release
@@ -41,7 +41,7 @@ jobs:
       - name: exe を作る
         run: npm run build:exe
 
-      - name: 配布物（zip）を作る
+      - name: 配布物（個別のファイル）を作る
         run: npm run package
 
       - name: exe の動作確認（start で Hub を起動して、画面・/health・終了を確かめる）
@@ -91,15 +91,15 @@ jobs:
           cat > release-notes.md <<NOTES
           ## Coders Hub ${GITHUB_REF_NAME}
 
-          Windows x64 用です。zip を展開して、\`coders-hub.exe\` を使います（Node.js は要りません）。手順は、zip の \`README.txt\` と、[README](https://github.com/${GITHUB_REPOSITORY}#readme) にあります。
+          Windows x64 用です。\`coders-hub.exe\` をダウンロードして、書き込めるフォルダに置きます（Node.js は要りません）。手順は、\`README.txt\` と、[README](https://github.com/${GITHUB_REPOSITORY}#readme) にあります。設定を変えるときは、\`config.example.json\` を \`config.json\` にコピーして、exe と同じフォルダに置きます。
 
           - 署名していないため、SmartScreen が警告することがあります。「詳細情報」→「実行」で開けます。
-          - SHA-256（zip）:
+          - SHA-256（coders-hub.exe）:
 
           \`\`\`
           ${sums}
           \`\`\`
           NOTES
-          gh release create "$GITHUB_REF_NAME" dist/release/*.zip dist/release/SHA256SUMS.txt \
+          gh release create "$GITHUB_REF_NAME" dist/release/* \
             --draft --verify-tag --title "$GITHUB_REF_NAME" --notes-file release-notes.md --generate-notes
           gh release edit "$GITHUB_REF_NAME" --draft=false

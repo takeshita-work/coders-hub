@@ -12,23 +12,26 @@
 この機能は、動作そのものは変えない。**入手と起動と設定の入れ方**を変える。
 
 ## 用語
-`../../00-product/glossary.md` に従う。「配布物」は、リリースに添付する zip。
+`../../00-product/glossary.md` に従う。「配布物」は、リリースに添付する、個別のファイル（zip にはしない。ADR 0022）。
 
 ## 振る舞い
 
 ### 配布物
-- GitHub のリリースに、`coders-hub-<バージョン>-win-x64.zip` が添付される
-- zip の中身: `coders-hub.exe`、`README.txt`（日本語。使い方・設定・SmartScreen の開き方・更新・アンインストール）、`LICENSE`（MIT）、`THIRD_PARTY_NOTICES.txt`（exe に含まれる Node.js と npm パッケージのライセンス表示）、`SHA256SUMS.txt`
-- リリースには、変更点（リリースノート）と、zip の SHA-256 が書かれる
+- GitHub のリリースに、次のファイルが、個別の資産として添付される（zip にはしない。ADR 0022）
+  - `coders-hub.exe`: 本体（バージョンなしの固定名。`releases/latest/download/coders-hub.exe` が、常に最新を指す）
+  - `README.txt`: 日本語。使い方・設定・SmartScreen の開き方・更新・アンインストール
+  - `config.example.json`: 設定の見本。読み込まれない。使うときは `config.json` にコピーする（リリースに `config.json` は含めない。更新で、利用者の設定を上書きしないため）
+  - `LICENSE`（MIT）、`THIRD_PARTY_NOTICES.txt`（exe に含まれる Node.js と npm パッケージのライセンス表示。画面と exe の両方）、`SHA256SUMS.txt`（`coders-hub.exe` の SHA-256）
+- リリースには、変更点（リリースノート）と、`coders-hub.exe` の SHA-256 が書かれる
 - 対象は Windows x64（NFR-001）
 
 ### 使い方（利用者）
-1. zip を展開し、`coders-hub.exe` を、好きな場所に置く（置き場所は、移動しない）
+1. リリースから `coders-hub.exe` をダウンロードし、書き込めるフォルダに置く（置き場所は、移動しない）。設定を変えるときは、`config.example.json` を `config.json` にコピーする
 2. `coders-hub.exe setup` を実行すると、`claude` に入れる設定（フックと、チャネルサーバーの MCP 設定）が、この exe のパスを指す形で、表示される（操作モード用の設定も出す）
 3. **`coders-hub.exe` をダブルクリックして、Hub を起動する**（ウィンドウは出ない）。ログイン時に自動で起動したければ、利用者が、スタートアップ・タスク スケジューラに登録する
 4. `claude` を起動する（`--mcp-config` で、チャネルサーバーを付ける）。チャネルサーバーは、Hub を起動しない
 5. ブラウザで、画面を開く（既定の URL は、README に書く）。Chrome / Edge の「アプリとしてインストール」も使える
-6. 更新は、画面の「Hub を終了」で Hub を止め、新しいリリースの zip を展開して、exe を置き換える。設定は、同じ置き場所なら、そのまま使える
+6. 更新は、画面の「Hub を終了」で Hub を止め、新しいリリースの `coders-hub.exe` を置き換える。`config.json` は触らない（リリースに含まれないので、上書きされない）
 
 ### サブコマンド
 - 引数なし・`start`: Hub を、ウィンドウなしで、切り離して起動し、すぐ終了する。すでに動いていれば、何もしない。出力は `%LOCALAPPDATA%\coders-hub\hub.log` に追記する（ダブルクリックを含む）
@@ -48,7 +51,7 @@
 - 画面（HTML・JS・CSS）は、exe に埋め込まれ、Hub が配信する。別のファイルを、横に置く必要はない
 
 ### ビルドとリリース（開発者）
-- タグ `v<バージョン>` を push すると、GitHub Actions が、次を行う: 依存の取得、テスト、画面のビルド、exe の作成、動作確認（`version`・`hub` の起動と `/health`）、zip と SHA-256 の作成、リリースの作成と添付
+- タグ `v<バージョン>` を push すると、GitHub Actions が、次を行う: 依存の取得、テスト、画面のビルド、exe の作成、動作確認（`version`・`start` による起動、`/health`、画面、終了 API）、資産と SHA-256 の作成（zip にはしない）、リリースの作成と添付
 - バージョンは、`package.json` の `version` と、タグが一致していること。一致しなければ、リリースを作らない
 - テストが失敗したら、リリースを作らない
 
@@ -57,9 +60,9 @@
 AC の番号は、要件 REQ-011 に対応する。
 
 ### 配布物
-- AC-011-1: タグの push で、GitHub のリリースに、zip・SHA-256 が添付される。リリースに変更点がある
-- AC-011-2: zip に、`coders-hub.exe`・`README.txt`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` が含まれる。`THIRD_PARTY_NOTICES.txt` に、Node.js と、束ねた npm パッケージ（画面と exe の両方）のライセンス文が入る
-- AC-011-3: `SHA256SUMS.txt` の値が、zip の中の exe の SHA-256 と一致する
+- AC-011-1: タグの push で、GitHub のリリースに、個別の資産（AC-011-2）が添付される。リリースに変更点がある
+- AC-011-2: 資産に、`coders-hub.exe`・`README.txt`・`config.example.json`・`LICENSE`・`THIRD_PARTY_NOTICES.txt`・`SHA256SUMS.txt` が含まれる（`config.json` は含まれない）。`THIRD_PARTY_NOTICES.txt` に、Node.js と、束ねた npm パッケージ（画面と exe の両方）のライセンス文が入る
+- AC-011-3: `SHA256SUMS.txt` の値が、資産の `coders-hub.exe` の SHA-256 と一致する
 - AC-011-4: `package.json` の `version` とタグが一致しないと、リリースが作られない。テストが失敗しても、作られない
 
 ### exe の動作

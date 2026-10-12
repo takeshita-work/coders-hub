@@ -25,8 +25,8 @@ src/cli/main.mjs ─┐ (サブコマンドで振り分け)
 | `src/shared/hub-client.mjs` | Hub の自動起動を、「`process.execPath` が SEA の exe なら、`<exe> hub`、そうでなければ、`node src/hub/main.mjs`」にする |
 | `src/setup/*` | 設定の生成部品を、`print-setup.mjs` と `coders-hub.exe setup` の両方が使う（exe のパスを渡す） |
 | `scripts/build-exe.mjs`（新規） | ① 画面をビルド ② esbuild で CommonJS にまとめる ③ SEA の設定を作り、blob を作る ④ `node.exe` を複製して `postject` で注入 ⑤ 動作確認 |
-| `.github/workflows/release.yml`（新規） | タグ `v*` で、Windows のランナー・Node 22 固定で、テスト → ビルド → zip → SHA-256 → リリースの作成と添付 |
-| `README.txt`・`LICENSE`・`SHA256SUMS.txt` | 配布物に含める。README は、`docs/setup.md` を元にした、利用者向けの短い版 |
+| `.github/workflows/release.yml`（新規） | タグ `v*` で、Windows のランナー・Node 22 固定で、テスト → ビルド → 資産の作成（zip にはしない。ADR 0022）→ SHA-256 → リリースの作成と添付 |
+| `README.txt`・`LICENSE`・`config.example.json`・`SHA256SUMS.txt` | 資産として添付する。README は、`docs/setup.md` を元にした、利用者向けの短い版 |
 
 ## 実機で確認した制約（ADR 0018）
 - Node 22 の SEA は、CommonJS のメインだけ。最上位の `await` を持つ ESM は、そのままでは束ねられない → 入口の `async` 化

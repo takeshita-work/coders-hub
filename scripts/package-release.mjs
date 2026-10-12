@@ -1,8 +1,8 @@
-// 配布物（zip）を作る（機能 007、ADR 0018）。出力: dist/release/coders-hub-<バージョン>-win-x64.zip と SHA256SUMS.txt
+// 配布物を作る（機能 007、ADR 0018・0022）。zip にはせず、リリースに個別の資産として添付するファイルを、dist/release/ に並べる。
 //   npm run build:exe && npm run package
-// zip の中身: coders-hub.exe、README.txt、LICENSE、THIRD_PARTY_NOTICES.txt（Node.js と束ねたパッケージのライセンス表示）、SHA256SUMS.txt（exe の SHA-256）
+// ファイル: coders-hub.exe（バージョンなしの固定名）、config.example.json（設定の見本。読まれない）、README.txt、LICENSE、
+//   THIRD_PARTY_NOTICES.txt（Node.js と束ねたパッケージのライセンス表示）、SHA256SUMS.txt（exe の SHA-256）
 import { build } from 'esbuild'
-import { spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,15 +13,13 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 const exe = path.join(root, 'dist/exe/coders-hub.exe')
 if (!fs.existsSync(exe)) throw new Error('dist/exe/coders-hub.exe がありません。先に npm run build:exe を実行してください')
 
-const name = `coders-hub-${pkg.version}-win-x64`
 const outDir = path.join(root, 'dist/release')
-const stage = path.join(outDir, name)
 fs.rmSync(outDir, { recursive: true, force: true })
-fs.mkdirSync(stage, { recursive: true })
+fs.mkdirSync(outDir, { recursive: true })
 
 // ---- 第三者のライセンス表示（Node.js と、束ねた npm パッケージ）----
 // exe には Node.js の実行ファイルと、束ねた npm パッケージが含まれる。MIT などの条件（著作権表示とライセンス文を残す）を満たすため、
-// zip に THIRD_PARTY_NOTICES.txt を入れる。束ねたパッケージは、esbuild の分析（metafile）から集める
+// 配布物に THIRD_PARTY_NOTICES.txt を入れる。束ねたパッケージは、esbuild の分析（metafile）から集める
 const bundledPackages = async () => {
   const names = new Set()
   const common = { bundle: true, write: false, metafile: true, logLevel: 'silent', external: ['bufferutil', 'utf-8-validate'] }
@@ -61,24 +59,17 @@ const writeNotices = async (file) => {
 
 const sha256 = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
 
-fs.copyFileSync(exe, path.join(stage, 'coders-hub.exe'))
-fs.writeFileSync(path.join(stage, 'README.txt'), fs.readFileSync(path.join(root, 'docs/release-readme.txt'), 'utf8').replaceAll('__VERSION__', pkg.version).replace(/\r?\n/g, '\r\n'))
-const license = path.join(root, 'LICENSE')
-if (fs.existsSync(license)) fs.copyFileSync(license, path.join(stage, 'LICENSE'))
-else throw new Error('LICENSE がありません（配布物に入れます）')
-await writeNotices(path.join(stage, 'THIRD_PARTY_NOTICES.txt'))
-fs.writeFileSync(path.join(stage, 'SHA256SUMS.txt'), `${sha256(path.join(stage, 'coders-hub.exe'))}  coders-hub.exe\r\n`)
+fs.copyFileSync(exe, path.join(outDir, 'coders-hub.exe'))
+fs.writeFileSync(path.join(outDir, 'README.txt'), fs.readFileSync(path.join(root, 'docs/release-readme.txt'), 'utf8').replaceAll('__VERSION__', pkg.version).replace(/\r?\n/g, '\r\n'))
+for (const name of ['LICENSE', 'config.example.json']) {
+  const file = path.join(root, name)
+  if (!fs.existsSync(file)) throw new Error(`${name} がありません（配布物に入れます）`)
+  fs.copyFileSync(file, path.join(outDir, name))
+}
+await writeNotices(path.join(outDir, 'THIRD_PARTY_NOTICES.txt'))
+fs.writeFileSync(path.join(outDir, 'SHA256SUMS.txt'), `${sha256(path.join(outDir, 'coders-hub.exe'))}  coders-hub.exe\r\n`)
 
-// zip は、PowerShell（.NET の ZipFile）で作る。tar は、環境によって GNU tar（zip を作れない）になるので使わない。
-// パスは、引用符の問題（# やスペース）を避けるため、環境変数で渡す
-const zip = path.join(outDir, `${name}.zip`)
-const r = spawnSync(
-  'powershell',
-  ['-NoProfile', '-NonInteractive', '-Command', 'Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory($env:ZIP_SRC, $env:ZIP_DEST, [System.IO.Compression.CompressionLevel]::Optimal, $false)'],
-  { stdio: 'inherit', env: { ...process.env, ZIP_SRC: stage, ZIP_DEST: zip } },
-)
-if (r.status !== 0) throw new Error('zip の作成に失敗しました')
-fs.rmSync(stage, { recursive: true, force: true })
-fs.writeFileSync(path.join(outDir, 'SHA256SUMS.txt'), `${sha256(zip)}  ${name}.zip\r\n`)
-console.log(`[package] ${zip}（${(fs.statSync(zip).size / 1024 / 1024).toFixed(1)} MB）`)
-console.log(`[package] SHA-256: ${sha256(zip)}`)
+for (const name of fs.readdirSync(outDir).sort()) {
+  console.log(`[package] ${name}（${(fs.statSync(path.join(outDir, name)).size / 1024 / 1024).toFixed(2)} MB）`)
+}
+console.log(`[package] SHA-256（exe）: ${sha256(path.join(outDir, 'coders-hub.exe'))}`)
