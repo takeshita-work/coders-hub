@@ -213,6 +213,30 @@ describe('サイドバーの操作（AC-UI-4〜6, 9, 17, 18）', () => {
     assert.deepEqual(patches, [{ onlyControl: true }, { dirSort: 'desc' }, { sessSort: 'late' }])
   })
 
+  it('AC-UI-31, AC-011-25: Hub を終了: 押すと確認が出て、「やめる」では何も呼ばれず、「終了する」で呼ばれて完了を表示する', async () => {
+    let calls = 0
+    const onShutdown = async () => { calls += 1; return { ok: true } }
+    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), opts: true }, onShutdown }))
+    fireEvent.click(screen.getByRole('button', { name: '終了…' }))
+    assert.match(document.body.textContent, /動いているセッションは、Hub を起動し直すまで一覧から消えます/)
+    fireEvent.click(screen.getByRole('button', { name: 'やめる' }))
+    assert.equal(calls, 0)
+    assert.ok(screen.getByRole('button', { name: '終了…' }), '確認が閉じる')
+    fireEvent.click(screen.getByRole('button', { name: '終了…' }))
+    fireEvent.click(screen.getByRole('button', { name: '終了する' }))
+    await waitFor(() => assert.match(document.body.textContent, /Hub を終了しました/))
+    assert.equal(calls, 1)
+  })
+
+  it('AC-UI-31: 終了を要求できなかったときは、理由を確認の行に出し、やり直せる', async () => {
+    const onShutdown = async () => ({ ok: false, reason: 'Hub に接続できません' })
+    render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), opts: true }, onShutdown }))
+    fireEvent.click(screen.getByRole('button', { name: '終了…' }))
+    fireEvent.click(screen.getByRole('button', { name: '終了する' }))
+    await waitFor(() => assert.equal(screen.getByRole('alert').textContent, 'Hub に接続できません'))
+    assert.ok(screen.getByRole('button', { name: '終了する' }), 'やり直せる')
+  })
+
   it('AC-UI-2: 詳細の戻るボタンで一覧に戻る', () => {
     const patches = []
     render(app(state([sess('s1', { state: 'working' })]), { ui: { ...defaultUi(), selected: 's1', view: 'detail' }, onUi: (p) => patches.push(p) }))

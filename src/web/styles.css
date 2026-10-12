@@ -64,6 +64,11 @@ button { cursor: pointer; }
 /* フィルター・ソートのパネル */
 .panel { margin: 0 10px 8px; padding: 2px 10px 6px; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
 .panel-sec + .panel-sec { border-top: 1px solid var(--border); margin-top: 6px; }
+.quit-btn { padding: 2px 8px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; color: var(--text); }
+.quit-btn:hover:not(:disabled) { background: var(--bg); }
+.quit-btn:disabled { color: var(--muted); }
+.quit-note { margin: 2px 0 6px; line-height: 1.5; color: var(--muted); }
+.quit-actions { display: flex; gap: 6px; justify-content: flex-end; padding-bottom: 2px; }
 .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0; }
 .switch { position: relative; flex: none; width: 34px; height: 18px; padding: 0; border: 0; border-radius: 999px; background: var(--border); transition: background .12s; }
 .switch .knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .12s; }
@@ -207,7 +212,7 @@ button { cursor: pointer; }
   .app.view-list .main { display: none; }
   .app.view-detail .side { display: none; }
   .btn, .node-head, .sess-btn { min-height: 44px; }
-  .sort-btn { min-height: 40px; min-width: 64px; }
+  .sort-btn, .quit-btn { min-height: 40px; min-width: 64px; }
   .sess-box > .sess-allow { min-height: 40px; }
   .d-top .float, .dock .float { padding-left: 12px; padding-right: 12px; }
   .detail .d-body { padding-left: 12px; padding-right: 12px; }

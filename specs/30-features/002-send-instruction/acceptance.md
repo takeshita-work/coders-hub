@@ -37,7 +37,7 @@
 
 ### 準備
 - [ ] 画面をビルドする: `npm run build`
-- [ ] 動いている Hub を止める（新しいコードで起動し直すため）。止めると、次に起動する `claude` のチャネルサーバーが、新しい Hub を自動で起動する
+- [ ] 動いている Hub を止める（新しいコードで起動し直すため）。止めたあと、`npm start` で、新しいコードの Hub を起動する（チャネルサーバーは Hub を起動しない。ADR 0020）
   ```powershell
   Stop-Process -Id (Get-NetTCPConnection -LocalPort 47765 -State Listen).OwningProcess
   ```

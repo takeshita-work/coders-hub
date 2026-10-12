@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SUBSYSTEM_GUI, setSubsystem } from './pe-subsystem.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'dist/exe')
@@ -67,6 +68,9 @@ run(process.execPath, ['--experimental-sea-config', seaConfig])
 const exe = path.join(out, 'coders-hub.exe')
 fs.copyFileSync(process.execPath, exe)
 await inject(exe, 'NODE_SEA_BLOB', fs.readFileSync(blob), { sentinelFuse: SEA_FUSE })
+// 5b. ウィンドウなし（GUI）の exe にする（ADR 0020）。PE ヘッダーのサブシステムを 3（コンソール）から 2（GUI）へ。
+//     パイプ経由の標準入出力（version・hook・channel）は、GUI でも使える（実機で確認）。ダブルクリックでコンソールのウィンドウが出ない
+fs.writeFileSync(exe, setSubsystem(fs.readFileSync(exe), SUBSYSTEM_GUI))
 log('作成:', exe, `${(fs.statSync(exe).size / 1024 / 1024).toFixed(0)} MB`)
 
 // 6. 動作確認: バージョンが、package.json と一致する

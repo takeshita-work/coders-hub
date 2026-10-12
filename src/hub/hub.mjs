@@ -98,6 +98,8 @@ export const createHub = ({
   staticDir = path.resolve(here, '../../dist/web'),
   // 画面のファイルの配信元。{ get(相対パス) => Buffer | null }。配布版は、exe に埋め込んだもの。なければ staticDir のフォルダを読む
   staticAssets = null,
+  // 画面の「Hub を終了」(POST /api/shutdown) で呼ぶ。応答を返したあとに呼ぶ。なければ、終了の要求は 501（ADR 0020）
+  onShutdown = null,
   sweepIntervalMs = 5000,
   monitorIntervalMs = 1000,
   monitor = createTranscriptMonitor({ store, intervalMs: monitorIntervalMs }),
@@ -372,6 +374,13 @@ export const createHub = ({
     try {
       if (req.method !== 'GET' && req.method !== 'HEAD' && !guardWrite(req)) return sendJson(res, 403, { error: 'forbidden' })
       const [pathname] = req.url.split('?')
+      if (pathname === '/api/shutdown' && req.method === 'POST') {
+        await readJson(req)
+        if (!onShutdown) return sendJson(res, 501, { error: 'not-supported' })
+        // 応答を返し切ってから終了する（途中で接続を切らない）
+        res.on('finish', () => setTimeout(() => onShutdown(), 50))
+        return sendJson(res, 202, { ok: true })
+      }
       let match = /^\/api\/sessions\/([^/]+)\/instructions$/.exec(pathname)
       if (match && req.method === 'POST') {
         const body = await readJson(req)

@@ -69,10 +69,13 @@ const Dashboard = () => {
   const onRespond = useCallback((sessionId, requestId, body) => clientRef.current.respondRequest(sessionId, requestId, body), [])
   const onDismissRequest = useCallback((id) => clientRef.current.dismissRequest(id), [])
 
+  // Hub の終了（機能 007、ADR 0020）
+  const onShutdown = useCallback(() => clientRef.current.shutdownHub(), [])
+
   // 会話の取得（機能 004）。詳細を開いている間だけ、画面が呼ぶ
   const fetchConversation = useCallback((sessionId, options) => clientRef.current.fetchConversation(sessionId, options), [])
 
-  return h(App, { state, now: tick + state.offset, ui, onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, fetchConversation })
+  return h(App, { state, now: tick + state.offset, ui, onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation })
 }
 
 createRoot(document.getElementById('root')).render(h(Dashboard))

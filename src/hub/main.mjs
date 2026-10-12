@@ -8,7 +8,12 @@ import { createHub } from './hub.mjs'
 export const runHub = async ({ staticAssets, onListening } = {}) => {
   const config = loadConfig()
   const log = (type, extra = {}) => console.log(JSON.stringify({ at: new Date().toISOString(), type, ...extra }))
-  const hub = createHub({ config, log, ...(staticAssets ? { staticAssets } : {}) })
+  const shutdown = async () => {
+    await hub.stop()
+    process.exit(0)
+  }
+  // 画面の「Hub を終了」から止められる（ADR 0020）
+  const hub = createHub({ config, log, onShutdown: shutdown, ...(staticAssets ? { staticAssets } : {}) })
 
   try {
     const ports = await hub.start()
@@ -22,10 +27,6 @@ export const runHub = async ({ staticAssets, onListening } = {}) => {
     throw e
   }
 
-  const shutdown = async () => {
-    await hub.stop()
-    process.exit(0)
-  }
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
 }

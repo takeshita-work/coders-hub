@@ -132,6 +132,17 @@ export const createClient = ({
       }
     },
 
+    // Hub を終了する（ADR 0020）。応答を返してから Hub が終了する。戻り値: { ok, reason? }
+    async shutdownHub() {
+      try {
+        const res = await call('POST', '/api/shutdown', {})
+        if (res.ok) return { ok: true }
+        return { ok: false, reason: res.status === 501 ? 'この Hub は画面から終了できません' : `終了を要求できませんでした（${res.status}）` }
+      } catch {
+        return { ok: false, reason: 'Hub に接続できません' }
+      }
+    },
+
     // 会話を取得する（機能 004、ADR 0016）。etag を渡すと、変更がなければ notModified。before で、さらに前を読む。
     // 戻り値: { status: 'ok', messages, cursor, etag } | { status: 'notModified' } | { status: 'error', code }
     // 本文は、画面のメモリにだけ持つ（ブラウザに保存しない。AC-007-14）

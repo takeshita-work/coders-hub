@@ -84,7 +84,7 @@
 
 - [x] T4-1 `hook.mjs`: stdin の JSON を `POST /event` で送る。本体が落ちていても `claude` を妨げない（短いタイムアウト、失敗は黙って終了）
 - [x] T4-2 `channel.mjs`: MCP サーバーとして起動し、自己登録とロングポーリングを行う。stdin が閉じたら本体へ終了を通知する
-- [x] T4-3 本体の自動起動: `/health` で確認し、つながらなければ別プロセスで起動する。多重起動してもポートの確保で 1 つになることを確認する（NFR-005）
+- [x] T4-3 本体の自動起動（のちに、ADR 0020 で、利用者が起動する形へ置き換え）: `/health` で確認し、つながらなければ別プロセスで起動する。多重起動してもポートの確保で 1 つになることを確認する（NFR-005）
 - [x] T4-4 チャネルサーバーの登録方法。結果: `claude mcp add --scope user`（アカウントごと）。起動用の関数は、開発用フラグが不要になったので作らない。`node scripts/print-setup.mjs` が、このリポジトリの場所に合わせたコマンドを表示する
 - [x] T4-5 `settings.json` へ追加するフック設定の雛形。アカウントごとに追加する手順を `docs/setup.md` に反映する
   - 実装: `src/hook/{hook,payload}.mjs`、`src/channel/channel.mjs`、`src/shared/hub-client.mjs`、`src/setup/hooks-config.mjs`、`scripts/print-setup.mjs`。テスト: `tests/parts.test.mjs`、`tests/e2e.test.mjs`（実際のプロセスを起動して確認。`npm test` で全 82 件）

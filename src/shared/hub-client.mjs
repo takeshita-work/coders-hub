@@ -1,4 +1,4 @@
-// hook.mjs / channel.mjs から Hub 本体の内部 API を呼ぶための共通部品。
+// hook.mjs / channel.mjs / start から Hub 本体の内部 API を呼ぶための共通部品。
 import { spawn } from 'node:child_process'
 import { isSea } from 'node:sea'
 import path from 'node:path'
@@ -27,35 +27,20 @@ export const isHubUp = async (config, timeoutMs = 500) => {
   }
 }
 
-// Hub を別プロセスとして起動する（claude が終わっても残る）。多重に起動しても、
+// Hub を別プロセスとして起動する（起動元が終わっても残る）。多重に起動しても、
 // ポートを確保できなかった側は main.mjs が何もせず終了するので、1 つだけ残る（NFR-005）
 // 配布版（exe）では、自分と同じ exe を `hub` で起動する。開発時は、node で src/hub/main.mjs を起動する（ADR 0018）
-export const startHubProcess = (spawnFn = spawn, env = process.env, { sea = isSea(), execPath = process.execPath } = {}) => {
+// 起動するのは `coders-hub start` だけ。チャネルサーバーは起動しない（ADR 0020）。stdio: Hub の出力の行き先（ログファイルの fd）
+export const startHubProcess = (spawnFn = spawn, env = process.env, { sea = isSea(), execPath = process.execPath, stdio = 'ignore' } = {}) => {
   // 起動元のセッション固有の環境変数は引き継がない
   const clean = Object.fromEntries(Object.entries(env).filter(([k]) => !k.startsWith('CLAUDE')))
   const child = spawnFn(execPath, sea ? ['hub'] : [HUB_ENTRY], {
     cwd: sea ? path.dirname(execPath) : ROOT,
     env: clean,
     detached: true,
-    stdio: 'ignore',
+    stdio,
     windowsHide: true,
   })
   child.on?.('error', () => {})
   child.unref?.()
-}
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// Hub が動いていることを確認し、動いていなければ起動して待つ。動いていれば true
-export const ensureHub = async (
-  config,
-  { up = isHubUp, spawnHub = startHubProcess, waitMs = 3000, intervalMs = 100, wait = sleep } = {},
-) => {
-  if (await up(config)) return true
-  try { spawnHub() } catch { return false }
-  for (let waited = 0; waited < waitMs; waited += intervalMs) {
-    await wait(intervalMs)
-    if (await up(config)) return true
-  }
-  return false
 }

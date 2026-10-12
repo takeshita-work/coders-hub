@@ -425,7 +425,31 @@ const Node = ({ nodeKey, className, head, name, counts, collapsed, onToggle, chi
 const SortButton = ({ value, onClick, label }) =>
   h('button', { type: 'button', className: 'sort-btn', onClick, 'aria-label': label }, value ? '↑ 昇順' : '↓ 降順')
 
-export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond }) => {
+// パネルの最下段: Hub を終了する（機能 006 AC-UI-31、機能 007、ADR 0020）。押すと、その場で確認が出る
+export const QuitSection = ({ onShutdown }) => {
+  const [phase, setPhase] = useState('idle') // idle | confirm | sending | done
+  const [error, setError] = useState(null)
+  if (phase === 'done') return h('div', { className: 'panel-sec' }, h('div', { className: 'quit-note', role: 'status' }, 'Hub を終了しました。起動するには coders-hub を実行してください。'))
+  if (phase === 'idle') {
+    return h('div', { className: 'panel-sec' },
+      h('div', { className: 'panel-row' }, h('span', null, 'Hub'), h('button', { type: 'button', className: 'quit-btn', onClick: () => setPhase('confirm') }, '終了…')))
+  }
+  const go = async () => {
+    setPhase('sending')
+    setError(null)
+    const result = await onShutdown?.()
+    if (result?.ok) setPhase('done')
+    else { setError(result?.reason ?? '終了を要求できませんでした'); setPhase('confirm') }
+  }
+  return h('div', { className: 'panel-sec' },
+    h('div', { className: 'quit-note' }, 'Hub を終了します。動いているセッションは、Hub を起動し直すまで一覧から消えます。'),
+    error && h('div', { className: 'quit-note', role: 'alert' }, error),
+    h('div', { className: 'quit-actions' },
+      h('button', { type: 'button', className: 'sort-btn', disabled: phase === 'sending', onClick: () => { setError(null); setPhase('idle') } }, 'やめる'),
+      h('button', { type: 'button', className: 'quit-btn', disabled: phase === 'sending', onClick: go }, '終了する')))
+}
+
+export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, onShutdown }) => {
   const tree = buildTree(sessions, ui)
   return h('aside', { className: 'side' },
     h('div', { className: 'side-head' },
@@ -452,6 +476,7 @@ export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond }) =>
             h('span', null, 'セッション'),
             h(SortButton, { value: ui.sessSort === 'early', label: 'セッションの並び', onClick: () => onUi?.({ sessSort: ui.sessSort === 'early' ? 'late' : 'early' }) })),
         ),
+        h(QuitSection, { onShutdown }),
       ),
     ),
     h('div', { className: 'side-scroll' },
@@ -482,7 +507,7 @@ export const defaultUi = () => ({
 })
 
 // state: client.mjs の状態、now: 補正済みの現在時刻（ミリ秒）、ui: 画面の状態（defaultUi）、onUi: 画面の状態の変更
-export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, fetchConversation }) => {
+export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation }) => {
   const all = [...state.sessions.values()]
   const selected = ui.selected ? state.sessions.get(ui.selected) ?? null : null
   // 選んでいたセッションが閉じたら、詳細は空にして、スマホでは一覧に戻す
@@ -491,7 +516,7 @@ export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDi
     !state.connected && h('div', { className: 'banner', role: 'alert' },
       state.ready ? 'Hub との接続が切れました。再接続しています…（表示は最後に受け取った内容です）' : 'Hub に接続しています…'),
     h('div', { className: `app view-${view}${state.connected ? '' : ' stale'}` },
-      h(Sidebar, { sessions: all, ready: state.ready, now, ui, onUi, onRespond }),
+      h(Sidebar, { sessions: all, ready: state.ready, now, ui, onUi, onRespond, onShutdown }),
       h('main', { className: 'main' },
         selected
           ? h(Detail, {

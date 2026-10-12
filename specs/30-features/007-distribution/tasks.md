@@ -35,6 +35,16 @@
 - [x] T4b-2 テスト（`tests/config.test.mjs`）
 - [x] T4b-3 文書: README・`docs/setup.md`・`docs/release-readme.txt`・設計（architecture・security・api）の既定ポートと、ポートの変え方
 
+## フェーズ 4c: Hub の起動の分離（ADR 0020）
+- [x] T4c-1 ★ exe を GUI（ウィンドウなし）にしても、パイプ経由の標準入出力（`version`・`hook`・`channel` の MCP）が動くか → 動いた（PE のサブシステムを 3 から 2 へ。2026-10-12）。ターミナルの直接実行は出力が出ない（`| more` で受ける）
+- [x] T4c-2 チャネルサーバーが Hub を起動しない（`ensureHub` を削除）。止まっていても落ちず、再接続する（AC-011-23）
+- [x] T4c-3 `src/cli/start.mjs`: 引数なし・`start`（ウィンドウなし・切り離し・ログ `%LOCALAPPDATA%\coders-hub\hub.log`）（AC-011-20〜22）
+- [x] T4c-4 `POST /api/shutdown` と画面の「Hub を終了」（AC-011-24・25、機能 006 の AC-UI-31）。試作にも反映
+- [x] T4c-5 ビルド: exe を GUI にする（`scripts/pe-subsystem.mjs`）（AC-011-26）。Actions の動作確認を `start`・終了 API に変更
+- [x] T4c-6 文書: README・`docs/setup.md`・`docs/release-readme.txt`・設計（architecture・security・api）
+- [x] T4c-7 実機（ビルドした exe）: ダブルクリック相当でウィンドウなしの Hub が起動し、2 回目は何もせず、`/api/shutdown` で終了し、再起動されない
+- [ ] T4c-8 本物の `claude` で、GUI の exe を使ったフック・チャネルサーバー（AC-011-12 に含む）
+
 ## フェーズ 5: 確認
 - [x] T5-1 テスト（サブコマンド・アセット配信・設定の生成・自動起動）（AC-011-5〜11）
 - [x] T5-2 開発時の動作が変わらないこと（`npm test`・`npm start`）（AC-011-13）

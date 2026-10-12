@@ -2,7 +2,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildEvent } from '../src/hook/payload.mjs'
-import { ensureHub, startHubProcess, HUB_ENTRY } from '../src/shared/hub-client.mjs'
+import { startHubProcess, HUB_ENTRY } from '../src/shared/hub-client.mjs'
 import { buildHooksConfig, HOOK_EVENTS } from '../src/setup/hooks-config.mjs'
 
 describe('buildEvent（hook.mjs が送る内容）', () => {
@@ -38,35 +38,7 @@ describe('buildEvent（hook.mjs が送る内容）', () => {
   })
 })
 
-describe('ensureHub（Hub の自動起動。NFR-005）', () => {
-  const config = { host: '127.0.0.1', internalPort: 1 }
-  const noWait = async () => {}
-
-  it('すでに動いていれば起動しない', async () => {
-    let spawned = 0
-    const ok = await ensureHub(config, { up: async () => true, spawnHub: () => spawned++, wait: noWait })
-    assert.equal(ok, true)
-    assert.equal(spawned, 0)
-  })
-
-  it('動いていなければ 1 回起動し、立ち上がるまで待つ', async () => {
-    let spawned = 0
-    let checks = 0
-    const ok = await ensureHub(config, { up: async () => ++checks > 4, spawnHub: () => spawned++, wait: noWait })
-    assert.equal(ok, true)
-    assert.equal(spawned, 1)
-  })
-
-  it('立ち上がらなければ false（待ち続けない）', async () => {
-    const ok = await ensureHub(config, { up: async () => false, spawnHub: () => {}, wait: noWait, waitMs: 1000, intervalMs: 100 })
-    assert.equal(ok, false)
-  })
-
-  it('起動に失敗しても例外にしない', async () => {
-    const ok = await ensureHub(config, { up: async () => false, spawnHub: () => { throw new Error('x') }, wait: noWait })
-    assert.equal(ok, false)
-  })
-
+describe('startHubProcess（Hub の起動。start だけが使う。ADR 0020）', () => {
   it('startHubProcess は main.mjs を切り離して起動し、CLAUDE* の環境変数を引き継がない', () => {
     let call
     startHubProcess((cmd, args, opts) => { call = { cmd, args, opts }; return { unref() {}, on() {} } }, {

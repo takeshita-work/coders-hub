@@ -44,14 +44,19 @@ jobs:
       - name: 配布物（zip）を作る
         run: npm run package
 
-      - name: exe の動作確認（Hub を起動して、画面と /health を確かめる）
+      - name: exe の動作確認（start で Hub を起動して、画面・/health・終了を確かめる）
         shell: pwsh
         run: |
           $exe = (Resolve-Path dist/exe/coders-hub.exe).Path
-          & $exe version
+          # exe はウィンドウなし（GUI）の形式。出力はパイプへ渡して受け取る
+          $version = (& $exe version | Out-String).Trim()
+          if ($version -ne (node -p "require('./package.json').version")) { throw "version が package.json と違います: $version" }
           $env:CODERS_HUB_INTERNAL_PORT = '38765'
           $env:CODERS_HUB_UI_PORT = '38766'
-          $hub = Start-Process -FilePath $exe -ArgumentList 'hub' -PassThru -WindowStyle Hidden
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'coders-hub-local'
+          # 引数なしの実行（ダブルクリックと同じ）: Hub を切り離して起動して、すぐ終了する
+          $launcher = Start-Process -FilePath $exe -PassThru
+          if (-not $launcher.WaitForExit(10000)) { throw '引数なしの実行が終了しません' }
           try {
             $ok = $false
             for ($i = 0; $i -lt 30; $i++) {
@@ -66,9 +71,15 @@ jobs:
             if ($page.Content -notmatch 'Coders Hub') { throw '画面（/）が埋め込みの index.html ではありません' }
             $js = Invoke-WebRequest -Uri 'http://127.0.0.1:38766/app.js' -UseBasicParsing
             if ($js.StatusCode -ne 200) { throw 'app.js を配信できません' }
+            # 画面からの終了と同じ API で止まる
+            $headers = @{ 'X-Coders-Hub' = '1'; 'Content-Type' = 'application/json' }
+            $down = Invoke-WebRequest -Method Post -Uri 'http://127.0.0.1:38766/api/shutdown' -Headers $headers -Body '{}' -UseBasicParsing
+            if ($down.StatusCode -ne 202) { throw '終了の要求が 202 ではありません' }
+            Start-Sleep -Seconds 3
+            if (Get-Process -Name coders-hub -ErrorAction SilentlyContinue) { throw 'Hub が終了しませんでした' }
             Write-Host 'exe の動作確認: OK'
           } finally {
-            Stop-Process -Id $hub.Id -Force -ErrorAction SilentlyContinue
+            Stop-Process -Name coders-hub -Force -ErrorAction SilentlyContinue
           }
 
       - name: リリースを作って、添付して、公開する

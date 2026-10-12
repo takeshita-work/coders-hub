@@ -78,6 +78,7 @@
 | `POST /api/sessions/:sessionId/instructions` | 本文 `{ "text": "..." }`。1〜10,000 文字 | 202 `{ "id", "status" }`（`held` または `delivering`）。400（空・不正）、403、404（セッションなし）、409（操作モードでない）、413（上限超過） |
 | `DELETE /api/sessions/:sessionId/instructions/:id` | 保留中の指示の取り消し | 204。404（指示なし）、409（保留中でない） |
 | `POST /api/sessions/:sessionId/requests/:requestId/response` | 許可要求・質問への応答。許可: `{ "behavior": "allow" \| "deny" }`。質問: `{ "answers": { "<質問文>": "<答え>" \| ["<答え>", …] } }`（配列はカンマ区切りにして渡す。答えは 1 つ 2,000 文字まで。空は不可） | 204。400（形が不正・答えが足りない）、403、404（セッション・要求なし）、409（すでに閉じている） |
+| `POST /api/shutdown` | Hub を終了する（機能 007、ADR 0020）。本文は `{}`。応答を返し切ってから、Hub が終了する | 202 `{ "ok": true }`。403、501（終了の処理がない Hub） |
 
 エラーの本文は `{ "error": "<コード>", "message": "<理由>" }`。
 

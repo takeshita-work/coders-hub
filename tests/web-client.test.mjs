@@ -84,3 +84,23 @@ describe('createClient', () => {
     assert.equal(t.timers.length, 0)
   })
 })
+
+describe('shutdownHub（AC-011-24, 25）', () => {
+  const clientWith = (fetchImpl) => createClient({ url: 'ws://hub/ws', onChange: () => {}, fetchImpl, WebSocketImpl: class { close() {} } })
+
+  it('保護のヘッダーと JSON を付けて POST /api/shutdown を呼ぶ', async () => {
+    let call
+    const client = clientWith(async (url, init) => { call = { url, init }; return { ok: true, status: 202 } })
+    assert.deepEqual(await client.shutdownHub(), { ok: true })
+    assert.equal(call.url, '/api/shutdown')
+    assert.equal(call.init.method, 'POST')
+    assert.equal(call.init.headers['X-Coders-Hub'], '1')
+    assert.equal(call.init.headers['Content-Type'], 'application/json')
+  })
+
+  it('失敗の理由を返す（501・その他のステータス・接続できない）', async () => {
+    assert.match((await clientWith(async () => ({ ok: false, status: 501 })).shutdownHub()).reason, /終了できません/)
+    assert.match((await clientWith(async () => ({ ok: false, status: 403 })).shutdownHub()).reason, /403/)
+    assert.equal((await clientWith(async () => { throw new Error('x') }).shutdownHub()).reason, 'Hub に接続できません')
+  })
+})

@@ -5,13 +5,13 @@
 //   claude 側に --dangerously-load-development-channels server:coders-hub が必要（なければ通知は黙って捨てられる）。
 //  - Hub 本体へ /poll（ロングポーリング）で自己登録し、生存を知らせる
 //  - claude が終了して stdin が閉じたら /bye で知らせて終了する
-//  - Hub が動いていなければ、起動する（ADR 0004）
+//  - Hub は起動しない（ADR 0020）。Hub が止まっていても落ちず、動き始めたら再接続して登録する
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { loadConfig } from '../shared/config.mjs'
 import { isDirectRun } from '../shared/entry.mjs'
-import { ensureHub, postJson } from '../shared/hub-client.mjs'
+import { postJson } from '../shared/hub-client.mjs'
 
 // args: 引数（`--channel` で操作モード）。配布版は `coders-hub.exe channel [--channel]`
 export const runChannel = async (args = process.argv.slice(2)) => {
@@ -113,9 +113,8 @@ export const runChannel = async (args = process.argv.slice(2)) => {
         }
         if (res.status !== 204) await sleep(res.ok ? 0 : 3000)
       } catch {
-        // Hub に届かない: 起動を試みて、少し待って再接続する（再起動後の復元も同じ経路）
-        await ensureHub(config)
-        await sleep(1000)
+        // Hub に届かない: Hub は起動しない（ADR 0020）。少し待って再接続する（Hub の起動・再起動後の復元も同じ経路）
+        await sleep(2000)
       }
     }
   }

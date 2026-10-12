@@ -25,9 +25,9 @@
    ```powershell
    Get-FileHash .\coders-hub.exe -Algorithm SHA256
    ```
-3. 設定を表示します。
+3. 設定を表示します。`coders-hub.exe` はウィンドウのない形式なので、出力は `| more` で受け取ります。
    ```powershell
-   .\coders-hub.exe setup
+   .\coders-hub.exe setup | more
    ```
    表示された内容を、claude に入れます。
    - **1. フック設定**: 使う claude の `settings.json`（アカウントごと）に追加します
@@ -35,7 +35,8 @@
 
 ## 使い方
 
-1. claude を起動します。
+1. **Hub を起動します。** `coders-hub.exe` をダブルクリックします（ウィンドウは出ません。すでに動いていれば、何も起きません）。ログオン時に自動で起動したいときは、スタートアップ（`shell:startup`）に、`coders-hub.exe` のショートカットを置きます。
+2. claude を起動します。
    ```powershell
    # 一覧だけのモード（状態を見るだけ）
    claude --mcp-config coders-hub.json
@@ -44,7 +45,7 @@
    claude --mcp-config coders-hub-control.json --dangerously-load-development-channels server:coders-hub
    ```
    操作モードは、`--mcp-config` の設定（`--channel`）と、開発用フラグの**両方**がそろったときだけ有効です。フラグを付け忘れると、指示は黙って捨てられます。
-2. 最初の claude のセッションが、Hub（画面を配信する部分）を自動で起動します。手動で起動するときは、`coders-hub.exe` を実行します（ウィンドウを閉じると止まります）。
+   claude は、Hub を起動しません。Hub が動いていなくても claude は動き、Hub が動き始めたら一覧に出ます。
 3. ブラウザで <http://127.0.0.1:47766/> を開きます。Edge / Chrome の「アプリとしてインストール」で、専用のウィンドウにもできます。
 
 ### ポート
@@ -58,15 +59,16 @@
 - どちらか片方だけでも書けます。環境変数 `CODERS_HUB_INTERNAL_PORT`・`CODERS_HUB_UI_PORT` を設定すると、ファイルより優先します。
 - 変えたあとは、動いている Hub を止めて、`claude` を起動し直します。画面を「アプリとしてインストール」したときは、ポートを変えない前提です（アプリは、インストールした URL を開きます）。
 
-### 更新・アンインストール
+### Hub の終了・更新・アンインストール
 
-- **更新**: 新しいリリースの zip を展開し、`coders-hub.exe` を置き換えます（動いている Hub は、先に止めます）。
-- **アンインストール**: claude の設定から、追加したフックと MCP の設定を消し、`coders-hub.exe` を削除します。
+- **終了**: 画面の「フィルター・ソート」のパネルの最下段にある「Hub を終了」を押します（確認が出ます）。ほかに、タスク マネージャーで `coders-hub.exe` を終了できます。終了しても、claude は Hub を起動し直しません。
+- **更新**: Hub を終了してから、新しいリリースの zip を展開し、`coders-hub.exe` を置き換えます。もう一度、ダブルクリックで起動します。
+- **アンインストール**: Hub を終了し、claude の設定から、追加したフックと MCP の設定を消して、`coders-hub.exe` を削除します。必要なら、`%APPDATA%\coders-hub\`（設定）と `%LOCALAPPDATA%\coders-hub\`（ログ）も削除します。
 
 ### 困ったとき
 
 - 一覧に出ない: <http://127.0.0.1:47765/health> が `ok` を返すか確認します。claude で `/mcp` を開き、`coders-hub` が connected か確認します。
-- 画面が開かない: Hub が動いていません。claude を起動するか、`coders-hub.exe` を実行してください。
+- 画面が開かない（接続できない）: Hub が動いていません。`coders-hub.exe` をダブルクリックしてください。起動しないときは、`%LOCALAPPDATA%\coders-hub\hub.log` に理由が出ます（設定ファイルの誤りなど）。
 - 「すでに使われています」: 別のアプリがポートを使っています。設定ファイルでポートを変えてください。
 - 許可待ちなのに、画面に許可要求が出ない: 操作モード（開発用フラグ付き）で起動していない可能性があります。ターミナルで応答してください。
 
@@ -75,11 +77,12 @@
 ```
 claude ──(フック)────────────► Hub 本体 ══ WebSocket ══► ブラウザの画面
 claude ◄──stdio──► チャネルサーバー ─(ロングポーリング)──►  （127.0.0.1:47766）
+                     Hub は、利用者が起動する。チャネルサーバーは起動しない
                       （指示・許可の応答を claude へ渡す）
 ```
 
 - **フック**: セッションの状態の変化（作業中・返答待ち・許可待ちなど）を Hub へ送ります。
-- **チャネルサーバー**: claude が起動する MCP サーバー。生存確認と、指示・許可の応答の受け渡しをします。Hub が動いていなければ、起動します。
+- **チャネルサーバー**: claude が起動する MCP サーバー。生存確認と、指示・許可の応答の受け渡しをします。Hub は起動しません（Hub が止まっていても落ちず、動き始めたら再接続します）。
 - **Hub 本体**: 状態を、メモリの中だけで管理します（保存しません）。画面を配信し、WebSocket で変化を即座に届けます。会話は、画面から要求されたときに、claude の会話ログ（JSONL）の必要な分だけを読んで返し、保持しません。
 
 ## セキュリティとプライバシー
@@ -95,7 +98,7 @@ Node.js 22 以上が要ります。仕様駆動開発（SDD）で進めており
 ```powershell
 npm install
 npm run build        # 画面をビルド（dist/web）
-npm start            # Hub を起動（http://127.0.0.1:47766/）
+npm start            # Hub を前面で起動（http://127.0.0.1:47766/）
 npm test             # テスト（node:test）
 npm run build:exe    # 配布版の exe を作る（dist/exe/coders-hub.exe）
 npm run package      # 配布物の zip を作る（dist/release/）

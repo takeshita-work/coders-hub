@@ -78,6 +78,10 @@ button { cursor: pointer; }
 .switch[aria-checked="true"] .knob { transform: translateX(16px); }
 .sort-btn { min-width: 58px; padding: 2px 8px; font-size: 12px; font-weight: 600; text-align: center; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; }
 .sort-btn:hover { background: var(--bg); }
+.quit-btn { padding: 2px 8px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; color: var(--text); }
+.quit-btn:hover { background: var(--bg); }
+.quit-note { margin: 2px 0 6px; line-height: 1.5; color: var(--muted); }
+.quit-actions { display: flex; gap: 6px; justify-content: flex-end; padding-bottom: 2px; }
 
 .side-scroll { flex: 1; overflow: auto; padding: 8px 8px 24px; }
 .none { padding: 16px 8px; color: var(--muted); text-align: center; }
@@ -364,6 +368,10 @@ const renderSide = () => {
       '<div class="panel-sec">' +
         '<div class="panel-row"><span>プロジェクト</span><button class="sort-btn" data-act="dirtoggle">' + (ui.dirSort === 'asc' ? '↑ 昇順' : '↓ 降順') + '</button></div>' +
         '<div class="panel-row"><span>セッション</span><button class="sort-btn" data-act="sesstoggle">' + (ui.sessSort === 'early' ? '↑ 昇順' : '↓ 降順') + '</button></div></div>' +
+      '<div class="panel-sec">' + (ui.quit
+        ? '<div class="quit-note">Hub を終了します。動いているセッションは、Hub を起動し直すまで一覧から消えます。</div>' +
+          '<div class="quit-actions"><button class="sort-btn" data-act="quitcancel">やめる</button><button class="quit-btn" data-act="quitgo">終了する</button></div>'
+        : '<div class="panel-row"><span>Hub</span><button class="quit-btn" data-act="quit">終了…</button></div>') + '</div>' +
     '</div>' : '') + '</div>' +
     '<div class="side-scroll">' +
     (tree.length ? '<ul class="tree">' + treeHtml + '</ul>' : '<div class="none">該当するセッションがありません</div>') + '</div>'
@@ -457,7 +465,10 @@ document.addEventListener('click', (e) => {
     return
   }
   else if (act === 'control') ui.onlyControl = !ui.onlyControl
-  else if (act === 'opts') ui.opts = !ui.opts
+  else if (act === 'opts') { ui.opts = !ui.opts; ui.quit = false }
+  else if (act === 'quit') ui.quit = true
+  else if (act === 'quitcancel') ui.quit = false
+  else if (act === 'quitgo') { ui.quit = false; ui.opts = false }
   else if (act === 'dirtoggle') ui.dirSort = ui.dirSort === 'asc' ? 'desc' : 'asc'
   else if (act === 'sesstoggle') ui.sessSort = ui.sessSort === 'early' ? 'late' : 'early'
   else if (act === 'toggle') { const k = el.dataset.k; ui.collapsed.has(k) ? ui.collapsed.delete(k) : ui.collapsed.add(k) }

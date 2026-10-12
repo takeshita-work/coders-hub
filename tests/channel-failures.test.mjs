@@ -1,6 +1,6 @@
 // チャネルサーバーの失敗時の振る舞い（機能 003）。偽の Hub を相手に、本物の channel.mjs（--channel）を起動する。
 //  - Hub への転送に失敗しても、チャネルサーバーは止まらない（ターミナルで応答できる）
-//  - /poll が切れても、Hub が動いていれば再接続して続ける
+//  - /poll が切れても、Hub が動いていれば再接続して続ける（Hub を起動するための確認はしない。ADR 0020）
 //  - 不正な応答（allow／deny 以外）は claude へ送らない
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -94,11 +94,11 @@ describe('channel.mjs --channel の失敗時', () => {
       // 省略された項目は空文字で送る。セッションは環境変数のものを使う
       assert.deepEqual(log.permissions[1], { session: 'f1', request_id: 'second', tool_name: 'Bash', description: '', input_preview: '{}' })
 
-      // /poll の切断 → Hub の生存確認 → 再接続 → verdicts の受信
+      // /poll の切断 → 再接続 → verdicts の受信
       assert.ok(await until(() => verdicts.length >= 2), '応答が claude に返らない')
       await sleep(100)
       assert.deepEqual(verdicts, [{ request_id: 'aaaaa', behavior: 'allow' }, { request_id: 'ddddd', behavior: 'deny' }])
-      assert.ok(log.health >= 1, '切断のあと、Hub の生存確認をしていない')
+      assert.equal(log.health, 0, 'Hub の起動のための生存確認はしない（ADR 0020）')
       assert.ok(log.polls >= 3, '再接続して /poll を続けている')
     } finally {
       await client.close().catch(() => {})

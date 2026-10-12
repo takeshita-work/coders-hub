@@ -30,7 +30,7 @@ describe('サブコマンド（AC-011-5）', () => {
       await main([arg], { out, exePath: EXE, staticAssets: null })
       assert.equal(lines[0], USAGE)
     }
-    assert.match(USAGE, /hub .*サブコマンドなしでも同じ/)
+    assert.match(USAGE, /start .*サブコマンドなしでも同じ/)
   })
 
   it('不明なサブコマンドは、使い方つきで、エラー（終了コード 2）にする', async () => {
