@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { guideScript, guideText, showGuideWindow } from '../src/cli/guide.mjs'
+import { spawnSync } from 'node:child_process'
 import { main } from '../src/cli/main.mjs'
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'coders-hub-guide-'))
@@ -60,11 +61,12 @@ describe('案内の本文（guideText）', () => {
     assert.doesNotMatch(t, /番号を入力/)
   })
 
-  it('AC-011-29: メニューつき: 3 つの項目と、Enter だけで閉じる旨を出す', () => {
-    const t = guideText({ started: true, ready: true, config, logFile: log, menu: { saveDir: 'C:\\Apps' } })
-    assert.match(t, /^ {2}1 {2}claude に入れる設定を表示する/m)
-    assert.match(t, /^ {2}2 {2}設定をファイルに保存する（C:\\Apps）/m)
-    assert.match(t, /^ {2}3 {2}ログを開く/m)
+  it('AC-011-29: メニューつき: 2 つの項目（ファイル保存はない。ADR 0028）と、Enter だけで閉じる旨を出す', () => {
+    const t = guideText({ started: true, ready: true, config, logFile: log, menu: true })
+    assert.match(t, /^ {2}1 {2}セットアップを進める/m)
+    assert.match(t, /^ {2}2 {2}ログを開く/m)
+    assert.doesNotMatch(t, /^ {2}3 /m)
+    assert.doesNotMatch(t, /ファイルに保存/)
     assert.match(t, /何も入力せずに Enter を押すと、このウィンドウを閉じます/)
   })
 
@@ -91,11 +93,17 @@ describe('メニューのスクリプト（guideScript。AC-011-29）', () => {
     assert.ok(script.includes("$log = 'C:\\L\\hub.log'"))
   })
 
-  it('1: setup を表示、2: setup --write、3: ログをメモ帳で開く。空の入力で抜ける', () => {
-    assert.match(script, /'1' \{[^}]*& \$exe setup \| Out-Host;/)
-    assert.match(script, /'2' \{[^}]*& \$exe setup --write \| Out-Host/)
-    assert.match(script, /'3' \{[\s\S]*Start-Process notepad\.exe/)
+  it('1: 手順を 1 つずつ表示（setup --json）、2: ログをメモ帳で開く。空の入力で抜ける。ファイル保存（--write）は呼ばない', () => {
+    assert.match(script, /'1' \{ Show-Steps \}/)
+    assert.match(script, /& \$exe setup --json/)
+    assert.match(script, /'2' \{[\s\S]*Start-Process notepad\.exe/)
+    assert.doesNotMatch(script, /--write|'3' \{/)
     assert.match(script, /if \(\$choice -eq ''\) \{ break \}/)
+  })
+
+  it('exe の出力は、パイプ（Out-String）で受ける。exe は GUI 形式で、パイプなしだと、PowerShell は出力を受け取れず、手順が空になる（実機で確認）', () => {
+    assert.match(script, /\$json = \(& \$exe setup --json \| Out-String\)/)
+    assert.match(script, /\.steps \| Where-Object \{ \$_ \}/, '空の結果を、手順 1 件と数えない')
   })
 
   it('UTF-8 で受ける。毎回 guide.txt を表示する。EncodedCommand は使わない', () => {
@@ -164,5 +172,78 @@ describe('案内のウィンドウ（showGuideWindow）', () => {
   it('置き場所がない・書けないときは false（例外にしない）', async () => {
     assert.equal(await showGuideWindow('x', { dir: null, script: 's' }), false)
     assert.equal(await showGuideWindow('x', { dir: 'd', script: 's', fsImpl: { mkdirSync() { throw new Error('denied') } } }), false)
+  })
+})
+
+// 実際の PowerShell に入力を流して、メニューの流れを確かめる（Windows のみ。ADR 0027）。
+// exe は、手順の JSON を返すだけのスタブ（.cmd）に差し替える。クリップボードには触れない（c は押さない）
+describe('メニューの流れ（PowerShell に入力を流す。AC-011-29）', { skip: process.platform !== 'win32' }, () => {
+  const STEPS = {
+    steps: [
+      { id: 'a', title: '一つ目の手順', body: ['一つ目の本文'], copy: 'COPY-A' },
+      { id: 'b', title: '二つ目の手順', body: ['二つ目の本文'] },
+    ],
+  }
+
+  const run = (input, { steps = STEPS } = {}) => {
+    const dir = tmp()
+    try {
+      fs.writeFileSync(path.join(dir, 'steps.json'), JSON.stringify(steps), 'utf8')
+      fs.writeFileSync(path.join(dir, 'stub.cmd'), '@echo off\r\nif "%1 %2"=="setup --json" type "%~dp0steps.json"\r\n')
+      fs.writeFileSync(path.join(dir, 'guide.txt'), 'MENU-TEXT', 'utf8')
+      const script = guideScript({ exePath: path.join(dir, 'stub.cmd'), logFile: path.join(dir, 'none.log') })
+      fs.writeFileSync(path.join(dir, 'guide.ps1'), '\ufeff' + script, 'utf8')
+      const r = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(dir, 'guide.ps1')], { input, encoding: 'utf8', timeout: 30000 })
+      return { status: r.status, out: r.stdout, err: r.stderr }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
+  it('入力が尽きたとき（標準入力が閉じたとき）は、繰り返さずに終わる（メニューでも、手順の表示の途中でも）', () => {
+    const r = run('')
+    assert.equal(r.status, 0, r.err)
+    assert.equal(r.out.match(/MENU-TEXT/g).length, 1)
+    const r2 = run('1\n')
+    assert.equal(r2.status, 0, r2.err)
+    assert.equal(r2.out.match(/\[1\/2\] 一つ目の手順/g).length, 1, '手順の表示の途中で入力が尽きたら、そこで終わる')
+  })
+
+  it('空の入力だけ: メニューを 1 回表示して終了する', () => {
+    const r = run('\n')
+    assert.equal(r.status, 0, r.err)
+    assert.match(r.out, /MENU-TEXT/)
+  })
+
+  it('1 → Enter で最後まで進む → メニューに戻る。見出し・本文・コピーできる内容・操作の案内を出す', () => {
+    const r = run('1\n\n\n\n')
+    assert.equal(r.status, 0, r.err)
+    assert.match(r.out, /\[1\/2\] 一つ目の手順/)
+    assert.match(r.out, /一つ目の本文/)
+    assert.match(r.out, /COPY-A/)
+    assert.match(r.out, /Enter: 次へ \/ c: コピー \/ q: メニューへ戻る/, '最初の手順は、前へがない')
+    assert.match(r.out, /\[2\/2\] 二つ目の手順/)
+    assert.match(r.out, /Enter: 次へ \/ b: 前へ \/ q: メニューへ戻る/, 'コピーできる内容がない手順は、c を出さない')
+    assert.equal(r.out.match(/MENU-TEXT/g).length, 2, '最後の手順のあと、メニューに戻る')
+  })
+
+  it('b で前の手順に戻る。q でメニューに戻る', () => {
+    const r = run('1\n\nb\nq\n\n')
+    assert.equal(r.status, 0, r.err)
+    assert.equal(r.out.match(/\[1\/2\] 一つ目の手順/g).length, 2, '二つ目から b で、一つ目に戻る')
+    assert.equal(r.out.match(/MENU-TEXT/g).length, 2, 'q でメニューに戻る')
+  })
+
+  it('2: ログがまだないときは、その旨を出して、メニューに戻る（ログがあれば、メモ帳で開く）', () => {
+    const r = run('2\n\n\n')
+    assert.equal(r.status, 0, r.err)
+    assert.match(r.out, /ログはまだありません/)
+    assert.equal(r.out.match(/MENU-TEXT/g).length, 2)
+  })
+
+  it('手順を読み込めないときは、その旨を出して、メニューに戻る', () => {
+    const r = run('1\n\n\n', { steps: { steps: [] } })
+    assert.equal(r.status, 0, r.err)
+    assert.match(r.out, /手順を読み込めませんでした/)
   })
 })

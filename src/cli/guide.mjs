@@ -1,6 +1,6 @@
 // `coders-hub.exe` をダブルクリックしたとき（引数なし）に出す案内とメニュー（ADR 0024・0025）。
 // Hub は、ウィンドウなしで動き続ける。案内のウィンドウは、URL・終了の方法・ログの場所を示し、メニューから
-// 「claude に入れる設定の表示」「設定のファイル保存」「ログを開く」を選べる。何も入力せずに Enter で閉じる（閉じても Hub は止まらない）。
+// 「セットアップを進める（手順を 1 つずつ表示。ADR 0027）」「ログを開く」を選べる（設定のファイル保存は、ADR 0028 でやめた）。何も入力せずに Enter で閉じる（閉じても Hub は止まらない）。
 // 配布版の exe はウィンドウのない形式（ADR 0020）で、自分では対話できないので、案内とメニューは、別のコンソールのウィンドウ
 // （cmd → PowerShell）で出す。
 import { spawn } from 'node:child_process'
@@ -17,7 +17,7 @@ const STATUS = {
 }
 
 // status: { started, reason?, ready?, config?, error? }（start.mjs の戻り値に、ready を足したもの）
-// menu: 配布版（ダブルクリック）のとき { saveDir }。メニューと、閉じ方の説明を足す。なければ（開発時のターミナル）足さない
+// menu: 配布版（ダブルクリック）のとき true。メニューと、閉じ方の説明を足す。なければ（開発時のターミナル）足さない
 export const guideText = ({ started, reason, ready, config, error, logFile, version = VERSION, menu = null }) => {
   const key = started ? (ready === false ? 'slow' : 'started') : reason
   const lines = [`Coders Hub ${version}`, '', STATUS[key] ?? STATUS.spawn]
@@ -36,9 +36,8 @@ export const guideText = ({ started, reason, ready, config, error, logFile, vers
   if (menu) {
     lines.push(
       '',
-      '  1  claude に入れる設定を表示する（フック・MCP）',
-      `  2  設定をファイルに保存する（${menu.saveDir}）`,
-      '  3  ログを開く',
+      '  1  セットアップを進める',
+      '  2  ログを開く',
       '',
       '番号を入力して Enter を押してください。何も入力せずに Enter を押すと、このウィンドウを閉じます。',
     )
@@ -50,6 +49,7 @@ export const guideText = ({ started, reason, ready, config, error, logFile, vers
 const psq = (s) => `'${String(s).replaceAll("'", "''")}'`
 
 // メニューの PowerShell スクリプト。本文は guide.txt を毎回表示する。選択に応じて、exe の setup を呼ぶ。
+// 1 は、exe の setup --json の手順を 1 つずつ表示する（Enter 次へ・b 前へ・c コピー・q メニューへ。ADR 0027）。
 // 日本語を含むので、UTF-8（BOM つき）で保存する（Windows PowerShell 5.1 は、BOM がないと ANSI として読む）。
 // exe のパスとログのパスは、ここで埋め込む。exe の出力は UTF-8 なので、コンソールの出力エンコーディングを UTF-8 にして受ける
 export const guideScript = ({ exePath, logFile }) => [
@@ -58,15 +58,52 @@ export const guideScript = ({ exePath, logFile }) => [
   `$exe = ${psq(exePath)}`,
   `$log = ${psq(logFile ?? '')}`,
   "$text = Join-Path $PSScriptRoot 'guide.txt'",
+  'function Show-Steps {',
+  '  try {',
+  // exe は、ウィンドウのない形式（GUI）。パイプに渡さないと、PowerShell は、終了を待たず、出力も受け取れない（ADR 0020）。Out-String で受ける
+  '    $json = (& $exe setup --json | Out-String)',
+  '    $steps = @(($json | ConvertFrom-Json).steps | Where-Object { $_ })',
+  '    if ($steps.Count -eq 0) { throw "no steps" }',
+  '  } catch {',
+  "    Write-Host ''; Write-Host '手順を読み込めませんでした。'; $null = Read-Host 'Enter キーを押すと、メニューに戻ります'; return",
+  '  }',
+  '  $i = 0; $notice = $null',
+  '  while ($i -lt $steps.Count) {',
+  '    $s = $steps[$i]',
+  '    Clear-Host',
+  "    Write-Host ('[{0}/{1}] {2}' -f ($i + 1), $steps.Count, $s.title)",
+  "    Write-Host ''",
+  '    foreach ($line in @($s.body)) { Write-Host $line }',
+  "    if ($s.copy) { Write-Host ''; Write-Host $s.copy -ForegroundColor Cyan }",
+  "    Write-Host ''",
+  '    if ($notice) { Write-Host $notice -ForegroundColor Green; $notice = $null }',
+  "    $keys = 'Enter: 次へ'",
+  "    if ($s.copy) { $keys += ' / c: コピー' }",
+  "    if ($i -gt 0) { $keys += ' / b: 前へ' }",
+  "    $keys += ' / q: メニューへ戻る'",
+  "    Write-Host ($keys + ' > ') -NoNewline",
+  // 入力が尽きたとき（標準入力が閉じたとき）は、null が返る。繰り返さずに、終わる
+  '    $answer = Read-Host',
+  '    if ($null -eq $answer) { return }',
+  '    $answer = $answer.Trim().ToLower()',
+  '    switch ($answer) {',
+  "      '' { $i++ }",
+  "      'b' { if ($i -gt 0) { $i-- } }",
+  "      'c' { if ($s.copy) { try { Set-Clipboard -Value $s.copy; $notice = 'コピーしました。' } catch { $notice = 'コピーできませんでした。表示された内容を選んでコピーしてください。' } } }",
+  "      'q' { return }",
+  '    }',
+  '  }',
+  '}',
   'while ($true) {',
   '  Clear-Host',
   '  Get-Content -LiteralPath $text -Encoding UTF8',
-  '  $choice = (Read-Host).Trim()',
+  '  $choice = Read-Host',
+  "  if ($null -eq $choice) { break }",
+  '  $choice = $choice.Trim()',
   "  if ($choice -eq '') { break }",
   '  switch ($choice) {',
-  "    '1' { Write-Host ''; & $exe setup | Out-Host; Write-Host ''; $null = Read-Host 'Enter キーを押すと、メニューに戻ります' }",
-  "    '2' { Write-Host ''; & $exe setup --write | Out-Host; Write-Host ''; $null = Read-Host 'Enter キーを押すと、メニューに戻ります' }",
-  "    '3' {",
+  "    '1' { Show-Steps }",
+  "    '2' {",
   '      if ($log -and (Test-Path -LiteralPath $log)) { Start-Process notepad.exe -ArgumentList (\'"\' + $log + \'"\') }',
   "      else { Write-Host ''; Write-Host 'ログはまだありません。'; $null = Read-Host 'Enter キーを押すと、メニューに戻ります' }",
   '    }',

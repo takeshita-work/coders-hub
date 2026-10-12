@@ -5,7 +5,7 @@
 //   coders-hub.exe hook       フック（claude が起動する）
 //   coders-hub.exe ask-hook   質問用の同期フック（claude が起動する）
 //   coders-hub.exe channel [--channel]   チャネルサーバー（claude が起動する。--channel で操作モード）
-//   coders-hub.exe setup      claude に入れる設定を表示する
+//   coders-hub.exe setup [--json]   セットアップの手順を表示する（--json: メニュー用の JSON）
 //   coders-hub.exe version
 // 開発時も `node src/cli/main.mjs <サブコマンド>` で同じ動作を確かめられる。
 import path from 'node:path'
@@ -15,7 +15,7 @@ import { runAskHook } from '../hook/ask-hook.mjs'
 import { runChannel } from '../channel/channel.mjs'
 import { runHook } from '../hook/hook.mjs'
 import { runHub } from '../hub/main.mjs'
-import { renderSetup, writeSetupFiles } from '../setup/render.mjs'
+import { renderSetup, renderSetupJson } from '../setup/render.mjs'
 import { isDirectRun } from '../shared/entry.mjs'
 import { loadSeaAssets } from './sea-assets.mjs'
 import { guideScript, guideText, showGuideWindow } from './guide.mjs'
@@ -28,8 +28,8 @@ export const USAGE = `Coders Hub ${VERSION}
   （サブコマンドなし）     Hub をウィンドウなしで起動し、案内のウィンドウを出す（ダブルクリック）
   start                    Hub をウィンドウなしで起動する（案内なし。スタートアップ用）
   hub                      Hub 本体を前面で動かす（確認・不具合調査用）
-  setup                    claude に入れる設定（フック・MCP）を表示する
-  setup --write [--out 先]  設定をファイルに保存する（既定: exe と同じフォルダ）
+  setup                    セットアップの手順（claude mcp add・フック）を表示する
+  setup --json             手順を JSON で表示する（案内のメニュー用）
   version                  バージョンを表示する
   hook / ask-hook          フック（claude が起動する）
   channel [--channel]      チャネルサーバー（claude が起動する。--channel で操作モード）
@@ -57,7 +57,7 @@ export const main = async (
     guide = (result, ready) => {
       const logFile = hubLogPath()
       if (!isSea()) return out(guideText({ ...result, ready, logFile }))
-      const text = guideText({ ...result, ready, logFile, menu: { saveDir: path.dirname(process.execPath) } })
+      const text = guideText({ ...result, ready, logFile, menu: true })
       return showGuideWindow(text, { dir: logDir(), script: guideScript({ exePath: process.execPath, logFile }) })
     },
   } = {},
@@ -75,17 +75,8 @@ export const main = async (
     case 'ask-hook': return runAskHook()
     case 'channel': return runChannel(rest)
     case 'setup': {
-      if (!rest.includes('--write')) return out(exePath ? renderSetup({ exePath }) : renderSetup({ paths: devPaths() }))
-      // 保存先: --out で指定。なければ exe と同じフォルダ（開発時は、いまのフォルダ）
-      const at = rest.indexOf('--out')
-      const dir = at >= 0 && rest[at + 1] ? path.resolve(rest[at + 1]) : exePath ? path.dirname(exePath) : process.cwd()
-      try {
-        return out(writeSetupFiles({ dir, exePath, paths: exePath ? {} : devPaths() }).join('\n'))
-      } catch (e) {
-        out(`設定を保存できませんでした: ${dir}\n${e.message}`)
-        process.exitCode = 1
-        return undefined
-      }
+      if (rest.includes('--json')) return out(renderSetupJson(exePath ? { exePath } : { paths: devPaths() }))
+      return out(exePath ? renderSetup({ exePath }) : renderSetup({ paths: devPaths() }))
     }
     case 'version': case '--version': case '-v': return out(VERSION)
     case 'help': case '--help': case '-h': return out(USAGE)

@@ -25,36 +25,27 @@
    ```powershell
    Get-FileHash .\coders-hub.exe -Algorithm SHA256
    ```
-3. 設定を用意します。`coders-hub.exe` をダブルクリックすると出るメニューで、`1`（設定を表示）または `2`（設定をファイルに保存）を選びます。ターミナルを使う場合は、`coders-hub.exe` がウィンドウのない形式なので、出力を `| more` で受け取ります。
+3. セットアップします。`coders-hub.exe` をダブルクリックすると出るメニューで、`1`（セットアップを進める）を選びます。手順が 1 つずつ表示されるので、`Enter` で進み、`c` で、コピーできる内容（コマンド・設定）をコピーします。手順は 3 つです（登録・フック・起動と確認）。
+   - **登録**: `claude mcp add --scope user coders-hub -- "<この exe のパス>" channel --channel` を、PowerShell で実行します（アカウントごとに 1 回）。exe を移動したら、登録し直します。
+   - **フック**: 使う claude の `settings.json`（アカウントごと）に、表示された `{ "hooks": { ... } }` の内容を足します。自動では書き換えません。
+
+   ターミナルを使う場合は、`coders-hub.exe` がウィンドウのない形式なので、出力を `| more` で受け取ります。
    ```powershell
    .\coders-hub.exe setup | more
    ```
-   表示された内容、または保存した `coders-hub-hooks.json` の内容を、claude に入れます。
-   - **1. フック設定**: 使う claude の `settings.json`（アカウントごと）に追加します
-   - **2. 一覧だけのモード / 3. 操作モード**: JSON を、`coders-hub.json`・`coders-hub-control.json` などの名前で保存します
-
-   メニューの `2`（または `coders-hub.exe setup --write`）は、次の3つのファイルを、exe と同じフォルダに保存します（同じ名前は上書きします）。
-
-   | ファイル | 中身 | 使い方 |
-   |---|---|---|
-   | `coders-hub-hooks.json` | フックの設定 | 使う claude の `settings.json` の `"hooks"` に、内容を追加します（自動では書き換えません） |
-   | `coders-hub.json` | 一覧だけのモードの MCP 設定 | `claude --mcp-config coders-hub.json` |
-   | `coders-hub-control.json` | 操作モードの MCP 設定 | `claude --mcp-config coders-hub-control.json --dangerously-load-development-channels server:coders-hub` |
-
-   3つとも、exe のパスを含みます。exe を移動したら、保存し直してください。
 
 ## 使い方
 
 1. **Hub を起動します。** `coders-hub.exe` をダブルクリックします。Hub はウィンドウなしで動き、案内のウィンドウ（画面の URL・終了の方法）が出ます。Enter で閉じます（閉じても Hub は動き続けます）。ログオン時に自動で起動したいときは、スタートアップ（`shell:startup`）に、`coders-hub.exe start`(案内なし)のショートカットを置きます。
 2. claude を起動します。
    ```powershell
-   # 一覧だけのモード（状態を見るだけ）
-   claude --mcp-config coders-hub.json
+   # 普通に起動（一覧と状態の表示だけ）
+   claude
 
    # 操作モード（指示の送信・許可と質問への応答もできる）
-   claude --mcp-config coders-hub-control.json --dangerously-load-development-channels server:coders-hub
+   claude --dangerously-load-development-channels server:coders-hub
    ```
-   操作モードは、`--mcp-config` の設定（`--channel`）と、開発用フラグの**両方**がそろったときだけ有効です。フラグを付け忘れると、指示は黙って捨てられます。
+   開発用フラグを付け忘れると、画面は「操作できる」と表示しますが、指示は黙って捨てられます。
    claude は、Hub を起動しません。Hub が動いていなくても claude は動き、Hub が動き始めたら一覧に出ます。
 3. ブラウザで <http://127.0.0.1:47766/> を開きます。Edge / Chrome の「アプリとしてインストール」で、専用のウィンドウにもできます。
 
@@ -73,7 +64,7 @@
 
 - **終了**: 画面の「フィルター・ソート」のパネルの最下段にある「Hub を終了」を押します（確認が出ます）。ほかに、タスク マネージャーで `coders-hub.exe` を終了できます。終了しても、claude は Hub を起動し直しません。
 - **更新**: Hub を終了してから、新しいリリースの `coders-hub.exe` をダウンロードして、置き換えます。`config.json` は触りません。もう一度、ダブルクリックで起動します。
-- **アンインストール**: Hub を終了し、claude の設定から、追加したフックと MCP の設定を消して、`coders-hub.exe` を削除します。必要なら、`config.json`（exe と同じフォルダ）と、`%LOCALAPPDATA%\coders-hub\`（ログ）も削除します。
+- **アンインストール**: Hub を終了し、`claude mcp remove --scope user coders-hub` で登録を解除し（アカウントごと）、`settings.json` に追加したフックを消して、`coders-hub.exe` を削除します。必要なら、`config.json`（exe と同じフォルダ）と、`%LOCALAPPDATA%\coders-hub\`（ログ）も削除します。
 
 ### 困ったとき
 

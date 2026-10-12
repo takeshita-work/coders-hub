@@ -61,11 +61,25 @@
 - [x] T4f-4 ビルドした exe のダブルクリック相当で、案内のウィンドウ（Windows Terminal）が出て、Hub が 1 つだけ動き、2 回目は「すでに起動しています」になることを確認。cmd が `start` を終えるまで待たないと、親の exe の終了で案内も消えるため、待つようにした。Enter キーでの閉じ方は、画面での目視は未確認
 
 ## フェーズ 4g: 案内のメニュー（ADR 0025）
-- [x] T4g-1 `setup --write`（`src/setup/render.mjs`、`src/cli/main.mjs`）（AC-011-30）
+- [x] T4g-1 `setup --write`（`src/setup/render.mjs`、`src/cli/main.mjs`）（AC-011-30）（ADR 0028 で廃止）
 - [x] T4g-2 メニュー（`guide.mjs` の `guideScript`、`guide.ps1`、`guide.cmd`）（AC-011-29）
 - [x] T4g-3 テスト（`tests/guide.test.mjs`、`tests/cli.test.mjs`）。メニューの操作（1・2・不正な入力・空で終了）を、ビルドした exe で、標準入力から確認
 - [x] T4g-4 文書: README・`docs/setup.md`・`docs/release-readme.txt`
 - [ ] T4g-5 実機（目視）: メニューの表示、`3` のメモ帳、スクロール（ユーザーの確認待ち）
+
+## フェーズ 4h: セットアップを `claude mcp add` と手順メニューにする（ADR 0026・0027）
+- [x] T4h-1 `src/setup/mcp-config.mjs`（`buildMcpAddCommand`・解除のコマンド）、`src/setup/steps.mjs`（手順のデータ）、`render.mjs`（`setup`・`setup --json`・`setup --write` はフックだけ）（AC-011-8, 30, 31）
+- [x] T4h-2 案内のメニュー（`guide.mjs`）: `1` 手順を 1 つずつ表示（Enter・b・c・q）、`2` フックの保存（AC-011-29）
+- [x] T4h-3 テスト: 手順の文面（ユニット）、メニューの流れ（PowerShell に入力を流す結合テスト）
+- [x] T4h-3b 文面の正を `setup-flow.md` に置き、`steps.mjs` との一致をテストする（`tests/setup-flow.test.mjs`）
+- [ ] T4h-4 実機（目視）: `dist/exe/coders-hub.exe` のメニューで、3 つの手順を進め、実際に `claude mcp add` で登録して一覧に出る（ユーザーの確認待ち）
+- [ ] T4h-5 未確認の点の確認: 開発用フラグなしの `claude` の挙動（ADR 0026）、PowerShell での `--` と引用符つきパスの渡り方、`--scope user` がアカウントごとに分かれること
+- [x] T4h-6 文書: README・`docs/setup.md`・`docs/release-readme.txt`
+
+## フェーズ 4i: 設定のファイル保存をやめ、手順を 3 つにする（ADR 0028）
+- [x] T4i-1 `setup --write`・メニューの 2 を削除し、メニューを 2 項目（セットアップ・ログ）にする（AC-011-29、AC-011-30 の廃止）
+- [x] T4i-2 手順を、`setup-flow.md`（完成版）の 3 つに合わせる。`steps.mjs` は、md から生成し、一致をテストする（AC-011-8）
+- [x] T4i-3 テストの更新（手順・メニュー・ファイルを作らないこと）
 
 ## フェーズ 5: 確認
 - [x] T5-1 テスト（サブコマンド・アセット配信・設定の生成・自動起動）（AC-011-5〜11）

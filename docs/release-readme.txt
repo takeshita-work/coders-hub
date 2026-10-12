@@ -11,22 +11,26 @@ Coders Hub __VERSION__（Windows x64）
    「詳細情報」→「実行」を選びます（この exe は署名していません）。
    不安な場合は、SHA256SUMS.txt の値と、次のコマンドの結果を、見比べてください。
      Get-FileHash .\coders-hub.exe -Algorithm SHA256
-3. 設定を用意します。coders-hub.exe をダブルクリックすると出るメニューで、1（設定を表示）または 2（設定をファイルに保存）を選びます。
+3. セットアップします。coders-hub.exe をダブルクリックすると出るメニューで、1（セットアップを進める）を選びます。
+   手順が 1 つずつ表示されるので、Enter で進み、c で、コピーできる内容（コマンド・設定）をコピーします。
+   手順は 3 つです（登録・フック・起動と確認）。
+   - 登録: claude mcp add --scope user coders-hub -- "<この exe のパス>" channel --channel を、PowerShell で実行します
+     （アカウントごとに 1 回。exe を移動したら、登録し直します）。
+   - フック: 使う claude の設定ファイル（settings.json。アカウントごと）に、表示された { "hooks": { ... } } の内容を足します
+     （自動では書き換えません）。
    ターミナルを使う場合は、次のようにします。
      .\coders-hub.exe setup | more
-   表示された内容を、claude に入れます。
    （coders-hub.exe は、ウィンドウのない形式です。表示は「coders-hub.exe setup | more」のように、パイプで受け取ります）
-   - 「1. フック設定」: 使う claude の設定ファイル（settings.json。アカウントごと）に追加します。
-   - 「2. 一覧だけのモード」「3. 操作モード」: JSON を、coders-hub.json などの名前で保存します。
 
 【使い方】
 1. Hub を起動します。coders-hub.exe をダブルクリックします。Hub はウィンドウなしで動き、案内のウィンドウ（画面の URL・終了の方法）が出ます。
    Enter で閉じます（閉じても Hub は動き続けます）。
    ログオン時に自動で起動したいときは、スタートアップ（shell:startup）に、「coders-hub.exe start」（案内なし）のショートカットを置きます。
-2. claude を起動します（一覧だけのモード）。
-     claude --mcp-config coders-hub.json
+2. claude を起動します。
+     claude
    指示の送信・許可と質問への応答もしたいときは、操作モードで起動します。
-     claude --mcp-config coders-hub-control.json --dangerously-load-development-channels server:coders-hub
+     claude --dangerously-load-development-channels server:coders-hub
+   開発用フラグを付け忘れると、画面は「操作できる」と表示しますが、指示は黙って捨てられます。
    claude は、Hub を起動しません。Hub が動いていなくても動き、Hub が動き始めたら一覧に出ます。
 3. ブラウザで http://127.0.0.1:47766/ を開きます。
    Edge / Chrome の「アプリとしてインストール」で、専用のウィンドウにもできます。
@@ -45,7 +49,7 @@ Coders Hub __VERSION__（Windows x64）
   もう一度、ダブルクリックで起動します。
 
 【アンインストール】
-- Hub を終了し、claude の設定から、追加したフック設定と MCP の設定を消し、coders-hub.exe を削除します。
+- Hub を終了し、claude mcp remove --scope user coders-hub で登録を解除し（アカウントごと）、settings.json に追加したフックを消して、coders-hub.exe を削除します。
   必要なら、config.json（exe と同じフォルダ）と、%LOCALAPPDATA%\coders-hub\（ログ）も削除します。
 
 【困ったとき】

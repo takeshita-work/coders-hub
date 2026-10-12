@@ -39,3 +39,6 @@ Proposed / Accepted / Superseded by NNNN / Deprecated
 | 0023 | 設定ファイル（config.json）には、JSONC のコメントを書けるようにする | Accepted |
 | 0024 | exe のダブルクリックでは、案内のウィンドウ（URL・終了の方法）を出し、Enter で閉じる | Accepted |
 | 0025 | 案内のウィンドウに、設定の表示・保存とログを開くメニューを付ける | Accepted |
+| 0026 | チャネルサーバーは `claude mcp add` で、`--channel` つきで登録する | Accepted |
+| 0027 | セットアップは、案内のメニューで、手順を 1 つずつ表示して進める | Accepted |
+| 0028 | 設定のファイル保存（`setup --write`・メニューの 2）をやめる | Accepted |

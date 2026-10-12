@@ -63,7 +63,7 @@
 - 識別: アカウント=`CLAUDE_CONFIG_DIR`、セッション=`CLAUDE_CODE_SESSION_ID`（フック側は `session_id`）、プロジェクト=cwd
 - 登録・生存確認: ポーリングのたびに自己情報を送る。一定時間来なければ一覧から外す。本体再起動後も自動復元。stdin が閉じたら終了通知
 - 本体の起動: 利用者が行う（`coders-hub.exe` のダブルクリック、`start`、`npm start`）。チャネルサーバーは本体を起動しない（ADR 0020。ADR 0004 の自動起動を置き換え）。ポート確保で本体は常に 1 つ。終了は画面の「Hub を終了」（`POST /api/shutdown`）
-- MCP はユーザースコープに登録せず、起動時の `--mcp-config` で指定する（無効なセッションで通知が黙って捨てられるのを防ぐ）
+- MCP は `claude mcp add --scope user coders-hub -- <サーバー> --channel` で、アカウントごとに 1 回登録する（ADR 0026。ADR 0004 の `--mcp-config` 方式を置き換え）。操作モードは、開発用フラグ（`--dangerously-load-development-channels server:coders-hub`）を付けた起動だけで有効になる。フラグなしの `claude` も Hub には「操作モード」と伝わるので、指示の受信確認（機能 002）で届かなかったことを検知する
 
 ## 内部 API（想定）
 

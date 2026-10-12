@@ -1,5 +1,7 @@
 # セットアップ手順
 
+> **配布版（exe）の利用者向けの手順は、`specs/30-features/007-distribution/setup-flow.md` が正**（`claude mcp add` で登録する。ADR 0026・0027・0028）。この文書は、開発者向けの下書きで、`--mcp-config` 方式の記述は、古いので、順次 setup-flow.md に合わせる。
+
 - 対象: セッション一覧（`specs/30-features/001-session-list`）、指示の送信（`specs/30-features/002-send-instruction`。「8. 操作モード」）、許可・質問への応答（`specs/30-features/003-permission-relay`。「9. 許可と質問に応答する」）
 - 仕様との差分: `wait.mjs`（asyncRewake 方式）は「次」の段階。引数なしのチャネルサーバーは登録と生存確認だけ（ADR 0006）で、チャネル機能を宣言しないので、開発用フラグ（`--dangerously-load-development-channels`）は不要（T0-5 で確認）
 - 実機での通し確認は、一覧が 001 の `acceptance.md`、指示の送信が 002 の `acceptance.md`、許可・質問への応答が 003 の `acceptance.md`（作成予定）。未確認の手順には「未確認」と書く
@@ -21,10 +23,7 @@ Node.js 22 以上が必要。
 node scripts/print-setup.mjs
 ```
 
-このリポジトリの場所に合わせた、次の 2 つが表示される。
-
-1. `settings.json` に追加するフック設定
-2. チャネルサーバーの登録コマンド
+このリポジトリの場所に合わせた、セットアップの手順（`setup-flow.md` の 3 つ: 登録・フック・起動と確認）が表示される。配布版では、案内のウィンドウのメニュー `1` で、同じ手順を 1 つずつ表示できる（ADR 0027）。
 
 ## 3. アカウントごとの設定（アカウントごとに初回のみ）
 
@@ -39,14 +38,13 @@ node scripts/print-setup.mjs
 
 ### 3-2. チャネルサーバー
 ```powershell
-$env:CLAUDE_CONFIG_DIR = "C:\Users\you\.claude-work"
-claude mcp add --scope user coders-hub -- node "D:/work/#tools/#web-app/coders-hub/src/channel/channel.mjs"
+$env:CLAUDE_CONFIG_DIR = "$HOME\.claude-account"
+claude mcp add --scope user coders-hub -- node "D:/work/#tools/#web-app/coders-hub/src/channel/channel.mjs" --channel
+claude mcp list
 ```
-（実際のコマンドは手順 2 の表示をそのまま使う。未確認: `--scope user` がアカウントごとの設定に保存されること）
+（実際のコマンドは手順 2 の表示をそのまま使う。**常に `--channel` つきで登録する**。操作モードで使うかどうかは、claude の起動時の開発用フラグで決まる。ADR 0026。未確認: `--scope user` がアカウントごとの設定に保存されること）
 
-プロジェクト単位で試すだけなら、プロジェクト直下の `.mcp.json` に書いて、`settings.local.json` の `enabledMcpjsonServers` で有効化してもよい（T0-5 の実験で確認した方法）。
-
-プロジェクトの `.mcp.json` には、**`--channel` を付けない**（一覧だけのモード）。付けると、何も付けずに起動した `claude` も Hub に「操作モード」と伝わり、実際には通知が捨てられるのに画面は「操作できる」と表示してしまう（開発用フラグがないと、`claude` はチャネルの通知を捨てる。ADR 0011）。操作モードは、起動用スクリプトが `--channel` 入りの設定と `--dangerously-load-development-channels server:coders-hub` を渡したときだけにする（下の「3. 操作モード」）。
+解除・やり直し: `claude mcp remove --scope user coders-hub`
 
 ## 4. 使い方
 
@@ -107,20 +105,12 @@ notepad .\config.json
 | 操作 | 方法 |
 |---|---|
 | 起動（配布版） | `coders-hub.exe` をダブルクリックする。Hub は**ウィンドウなし**で動き、**案内のウィンドウ**（画面の URL・終了の方法・ログの場所）が出る。Enter で閉じる（閉じても Hub は動き続ける）。すでに動いていれば、その旨が出る。起動に失敗したときは、理由が出る |
-| 設定を表示・保存する | 案内のウィンドウのメニューで `1`（`setup` の出力を表示）、`2`（`setup --write`: exe と同じフォルダに `coders-hub-hooks.json`・`coders-hub.json`・`coders-hub-control.json` を保存）、`3`（ログを開く）。ターミナルからは `coders-hub.exe setup \| more`、`coders-hub.exe setup --write [--out フォルダ]` |
+| セットアップの手順を表示する | 案内のウィンドウのメニューで `1`（セットアップを進める。手順を 1 つずつ表示）、`2`（ログを開く）。ターミナルからは `coders-hub.exe setup \| more`。設定のファイル保存（`setup --write`）は、ADR 0028 でやめた |
 | 起動（案内なし） | `coders-hub.exe start`。スタートアップ・タスク スケジューラ向け |
 | 起動（開発版） | `npm start`（ターミナルを閉じると止まる）。ウィンドウなしなら、`node src/cli/main.mjs start` |
 | 前面で動かす（調査用） | `coders-hub.exe hub`（ログが標準出力に出る。ターミナルから直接実行すると、配布版は出力が出ないので、`| more` を付ける） |
 | ログオン時に自動起動する（任意） | スタートアップ（`shell:startup`）に `coders-hub.exe start` のショートカットを置く。または、タスク スケジューラで「ログオン時」に `coders-hub.exe start` を実行する（案内のウィンドウが出ない）。Hub が動いていれば何もしないので、重ねて登録しても問題ない |
 | 終了 | 画面の「フィルター・ソート」のパネルの最下段「Hub を終了」。ほかに、タスクマネージャーで `coders-hub.exe`（開発版は `node.exe`）を終了する |
-
-- `setup --write` が保存するファイル（exe のパスを含む。exe を移動したら保存し直す。同じ名前は上書きする）:
-
-  | ファイル | 中身 | 使い方 |
-  |---|---|---|
-  | `coders-hub-hooks.json` | フックの設定 | 使う claude の `settings.json`（アカウントごと）の `"hooks"` に内容を追加する（自動では書き換えない） |
-  | `coders-hub.json` | 一覧だけのモードの MCP 設定 | `claude --mcp-config coders-hub.json` |
-  | `coders-hub-control.json` | 操作モードの MCP 設定 | `claude --mcp-config coders-hub-control.json --dangerously-load-development-channels server:coders-hub`（手順 8） |
 
 - ウィンドウなしの Hub のログは、`%LOCALAPPDATA%\coders-hub\hub.log` に追記される（1 MB を超えていたら、起動のときに作り直す）。起動しないときは、まずここを見る（設定ファイルの誤りなどの理由も出る）
 - Hub を終了しても、動いている `claude` のチャネルサーバーは、Hub を起動し直さない。Hub を起動し直すと、動いているセッションが、自動で一覧に戻る
@@ -161,12 +151,12 @@ curl.exe -X POST http://127.0.0.1:47765/event -H "Content-Type: application/json
 
 ダッシュボードから、セッションへ指示を送れるようにする起動方法。一覧だけなら、手順 4 のままでよい。
 
-### 8-1. 設定ファイルを作る
-`node scripts/print-setup.mjs` の「3. 操作モード」に表示される JSON を、`coders-hub-control.json` などの名前で保存する。一覧だけのモードとの違いは、引数 `--channel` だけ。サーバーの名前はどちらも `coders-hub`。
+### 8-1. 登録する
+手順 3-2 の `claude mcp add` で、`--channel` つきのチャネルサーバーを登録しておく（アカウントごとに 1 回）。設定ファイル（`coders-hub-control.json` など）は、要らない。
 
 ### 8-2. 起動する
 ```powershell
-claude --mcp-config coders-hub-control.json --dangerously-load-development-channels server:coders-hub
+claude --dangerously-load-development-channels server:coders-hub
 ```
 
 - 起動のたびに、開発用チャネルの警告画面が出る。内容を確認して承認する

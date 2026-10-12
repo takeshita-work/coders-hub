@@ -12,8 +12,8 @@ import { VERSION } from '../src/cli/version.mjs'
 import { isDirectRun } from '../src/shared/entry.mjs'
 import { startHubProcess } from '../src/shared/hub-client.mjs'
 import { buildHooksConfig } from '../src/setup/hooks-config.mjs'
-import { buildMcpConfig, CHANNEL_FLAG } from '../src/setup/mcp-config.mjs'
-import { renderSetup } from '../src/setup/render.mjs'
+import { buildMcpAddCommand, CHANNEL_FLAG } from '../src/setup/mcp-config.mjs'
+import { renderSetup, renderSetupJson } from '../src/setup/render.mjs'
 
 const EXE = 'C:\\Program Files\\Coders Hub\\coders-hub.exe'
 const collect = () => { const lines = []; return { lines, out: (t) => lines.push(t) } }
@@ -57,34 +57,43 @@ describe('設定の生成（AC-011-8）', () => {
     assert.equal(ask.hooks[0].async, undefined, '質問用は同期')
   })
 
-  it('MCP: exe を channel で起動する。操作モードは --channel が付く。名前は同じ', () => {
-    const list = buildMcpConfig('', { exePath: EXE }).mcpServers['coders-hub']
-    assert.deepEqual([list.command, list.args], ['C:/Program Files/Coders Hub/coders-hub.exe', ['channel']])
-    const control = buildMcpConfig('', { exePath: EXE, channel: true }).mcpServers['coders-hub']
-    assert.deepEqual(control.args, ['channel', '--channel'])
+  it('MCP: claude mcp add で、exe を channel --channel で登録する（ADR 0026）', () => {
+    assert.equal(buildMcpAddCommand('', { exePath: EXE }), 'claude mcp add --scope user coders-hub -- "C:\\Program Files\\Coders Hub\\coders-hub.exe" channel --channel')
   })
 
   it('node 版の設定は、これまでどおり（AC-011-13）', () => {
     assert.equal(buildHooksConfig('D:\\x\\hook.mjs').hooks.Stop[0].hooks[0].command, 'node "D:/x/hook.mjs"')
-    assert.deepEqual(buildMcpConfig('D:\\x\\channel.mjs').mcpServers['coders-hub'], { command: 'node', args: ['D:/x/channel.mjs'] })
+    assert.equal(buildMcpAddCommand('D:\\x\\channel.mjs'), 'claude mcp add --scope user coders-hub -- node "D:\\x\\channel.mjs" --channel')
   })
 
-  it('setup は、3 つの設定（フック・一覧だけ・操作モード）と起動フラグの案内を出す', async () => {
+  it('setup は、手順（アカウント・登録・フック・起動と確認）と、起動フラグの案内を出す', async () => {
     const { lines, out } = collect()
     await main(['setup'], { out, exePath: EXE, staticAssets: null })
     const text = lines.join('\n')
-    assert.match(text, /# 1\. settings\.json/)
-    assert.match(text, /# 2\. 一覧だけのモード/)
-    assert.match(text, /# 3\. 操作モード/)
+    assert.match(text, /# 1\. チャネルサーバーを登録する/)
+    assert.match(text, /# 2\. フックを追加する/)
+    assert.match(text, /# 3\. 起動して確認する/)
+    assert.doesNotMatch(text, /困ったとき/)
     assert.ok(text.includes(CHANNEL_FLAG))
+    assert.ok(text.includes(buildMcpAddCommand('', { exePath: EXE })))
     assert.match(text, /coders-hub\.exe\\" hook/)
     assert.equal(text, renderSetup({ exePath: EXE }))
+  })
+
+  it('setup --json は、手順を JSON で出す（案内のメニューが読む。ADR 0027）', async () => {
+    const { lines, out } = collect()
+    await main(['setup', '--json'], { out, exePath: EXE, staticAssets: null })
+    assert.equal(lines.length, 1)
+    const { steps } = JSON.parse(lines[0])
+    assert.deepEqual(steps.map((s) => s.id), ['register', 'hooks', 'use'])
+    assert.equal(lines[0], renderSetupJson({ exePath: EXE }))
   })
 
   it('exe でない（開発時の）setup は、node で起動するファイルを指す', async () => {
     const { lines, out } = collect()
     await main(['setup'], { out, exePath: null, staticAssets: null })
-    assert.match(lines[0], /node \\"[^"]*src\/hook\/hook\.mjs\\"/)
+    assert.match(lines[0], /# 1\./)
+    assert.match(lines.join('\n'), /node \\"[^"]*src\/hook\/hook\.mjs\\"/)
   })
 })
 
@@ -148,73 +157,35 @@ describe('直接実行の判定', () => {
   })
 })
 
-// AC-011-30（ADR 0025）: setup --write
-describe('設定のファイル保存（setup --write。AC-011-30）', () => {
+// AC-011-30 は、ADR 0028 で廃止（設定のファイル保存をやめた）
+describe('setup はファイルを作らない（ADR 0028）', () => {
   const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'coders-hub-setup-'))
 
-  it('exe と同じフォルダに、フック・一覧だけ・操作モードの 3 つの JSON を保存し、使い方を表示する', async () => {
-    const dir = tmp()
-    try {
-      const exePath = path.join(dir, 'coders-hub.exe')
-      const { lines, out } = collect()
-      await main(['setup', '--write'], { out, exePath, staticAssets: null })
-      const hooks = JSON.parse(fs.readFileSync(path.join(dir, 'coders-hub-hooks.json'), 'utf8'))
-      const list = JSON.parse(fs.readFileSync(path.join(dir, 'coders-hub.json'), 'utf8'))
-      const control = JSON.parse(fs.readFileSync(path.join(dir, 'coders-hub-control.json'), 'utf8'))
-      const exe = exePath.replaceAll('\\', '/')
-      assert.ok(hooks.hooks.Stop[0].hooks[0].command.includes(`${exe}"`) || hooks.hooks.Stop[0].hooks[0].command.includes(exe))
-      assert.deepEqual(list.mcpServers['coders-hub'], { command: exe, args: ['channel'] })
-      assert.deepEqual(control.mcpServers['coders-hub'], { command: exe, args: ['channel', '--channel'] })
-      const text = lines.join('\n')
-      assert.match(text, /保存しました/)
-      assert.ok(text.includes(path.join(dir, 'coders-hub-control.json')))
-      assert.match(text, /--dangerously-load-development-channels server:coders-hub/)
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('--out で保存先を指定できる。同じ名前のファイルは上書きする', async () => {
-    const dir = tmp()
-    try {
-      const target = path.join(dir, 'out')
-      fs.mkdirSync(target)
-      fs.writeFileSync(path.join(target, 'coders-hub.json'), 'old')
-      await main(['setup', '--write', '--out', target], { out: () => {}, exePath: EXE, staticAssets: null })
-      assert.ok(JSON.parse(fs.readFileSync(path.join(target, 'coders-hub.json'), 'utf8')).mcpServers)
-      assert.equal(fs.existsSync(path.join(target, 'coders-hub-hooks.json')), true)
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('保存できないときは、理由を表示して、終了コード 1', async () => {
-    const dir = tmp()
-    try {
-      const blocker = path.join(dir, 'file')
-      fs.writeFileSync(blocker, 'x')
-      const { lines, out } = collect()
-      const before = process.exitCode
-      await main(['setup', '--write', '--out', path.join(blocker, 'sub')], { out, exePath: EXE, staticAssets: null })
-      assert.match(lines.join('\n'), /設定を保存できませんでした/)
-      assert.equal(process.exitCode, 1)
-      process.exitCode = before
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('--write なしの setup は、これまでどおり表示だけ（ファイルを作らない）', async () => {
+  it('setup は、手順を表示するだけで、ファイルを作らない', async () => {
     const dir = tmp()
     const cwd = process.cwd()
     try {
       process.chdir(dir)
       const { lines, out } = collect()
       await main(['setup'], { out, exePath: EXE, staticAssets: null })
-      assert.match(lines[0], /# 1\. settings\.json/)
+      assert.match(lines[0], /# 1\. チャネルサーバーを登録する/)
       assert.deepEqual(fs.readdirSync(dir), [])
     } finally {
       process.chdir(cwd)
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('--write は、なくなった。付けても、手順を表示するだけで、ファイルを作らない。使い方にも出ない', async () => {
+    const dir = tmp()
+    try {
+      const exePath = path.join(dir, 'coders-hub.exe')
+      const { lines, out } = collect()
+      await main(['setup', '--write'], { out, exePath, staticAssets: null })
+      assert.match(lines[0], /# 1\. チャネルサーバーを登録する/)
+      assert.deepEqual(fs.readdirSync(dir), [])
+      assert.doesNotMatch(USAGE, /--write|--out/)
+    } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }
   })
