@@ -140,6 +140,28 @@ describe('ツリー（AC-UI-4, 5, 7, 8）', () => {
   })
 })
 
+describe('サイドバーの目印（AC-NT-12, 13。機能 008 拡張）', () => {
+  it('AC-NT-12: 目印があるセッションの行に、出来事の色の点がつく', () => {
+    const state = stateOf([s('a', 'waiting', 1), s('b', 'permission', 1)])
+    const html = render(state, {}, { marked: new Map([['a', 'complete'], ['b', 'permission']]) })
+    assert.match(html, /data-session-id="a".*?mark-dot mark-complete/)
+    assert.match(html, /data-session-id="b".*?mark-dot mark-permission/)
+  })
+
+  it('目印がないセッションの行には、点が出ない', () => {
+    assert.doesNotMatch(render(stateOf([s('a', 'waiting', 1)])), /mark-dot/)
+  })
+
+  it('AC-NT-13: 折りたたんだプロジェクト・アカウントの見出しにも、点が伝わる（複数なら許可 > 質問 > 完了 の優先順位）', () => {
+    const html = render(
+      stateOf([s('a', 'waiting', 1), s('b', 'waiting', 1)]),
+      { collapsed: new Set([`a:${A}`]) },
+      { marked: new Map([['a', 'complete'], ['b', 'question']]) },
+    )
+    assert.match(html, /class="node-head band".*?mark-dot mark-question/, '質問の方が完了より優先度が高い')
+  })
+})
+
 describe('フィルター・ソートのパネル（AC-UI-9）', () => {
   const state = stateOf([s('c', 'working', 1), s('v', 'working', 1, { controllable: false })])
 

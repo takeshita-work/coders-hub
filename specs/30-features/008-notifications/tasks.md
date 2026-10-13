@@ -8,3 +8,5 @@
 - [x] T4 `main.mjs` に組み込む（出来事の検出・設定の保存・操作で止める）（AC-NT-10、AC-NT-11）
 - [x] T5 テスト（AC-NT-1〜11）
 - [ ] T6 実機の確認: 音が聞こえる、点滅が見える、止まる（`acceptance.md`）
+- [x] T7 サイドバーの目印（2026-10-13 追加）: `notify.mjs` の `detectMarks`、`logic.mjs` の `bestMark`、行・折りたたんだ見出しへの点の表示、選ぶと消える結線（`main.mjs`）（AC-NT-12〜14）
+- [ ] T8 実機の確認: 点がつく・折りたたみに伝わる・開くと消える（`acceptance.md`）

@@ -1,9 +1,9 @@
-// 通知（音と点滅）。機能 008、ADR 0030。AC-NT-1〜10
+// 通知（音と点滅）。機能 008、ADR 0030。AC-NT-1〜14
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ALERT_EVERY_MS, ALERT_MAX_MS, DEFAULT_SETTINGS, DURATIONS, TONES, alertMs, createFlasher, createNotifier, createWebAudioPlayer, detectAlert,
-  normalizeSettings,
+  detectMarks, normalizeSettings,
 } from '../src/web/notify.mjs'
 
 const sessions = (...pairs) => new Map(pairs.map(([id, state]) => [id, { sessionId: id, state }]))
@@ -71,6 +71,29 @@ describe('出来事の検出（AC-NT-1〜4）', () => {
 
   it('消えたセッション（終了）は、見ない', () => {
     assert.equal(detectAlert(sessions(['a', 'working'], ['b', 'working']), sessions(['b', 'working'])), null)
+  })
+})
+
+describe('サイドバーの目印の検出（AC-NT-12）: detectMarks は、起きたセッションぶんすべて返す', () => {
+  it('前の一覧がない（最初のスナップショット）ときは、空', () => {
+    assert.deepEqual(detectMarks(null, sessions(['a', 'permission'])), new Map())
+  })
+
+  it('1 件なら、detectAlert と同じ種類が、その sessionId に入る', () => {
+    const marks = detectMarks(sessions(['a', 'working']), sessions(['a', 'waiting']))
+    assert.deepEqual(marks, new Map([['a', 'complete']]))
+  })
+
+  it('複数あれば、detectAlert が 1 つに絞るのに対し、全部返す', () => {
+    const prev = sessions(['a', 'working'], ['b', 'working'], ['c', 'working'])
+    const next = sessions(['a', 'waiting'], ['b', 'question'], ['c', 'permission'])
+    assert.deepEqual(detectMarks(prev, next), new Map([['a', 'complete'], ['b', 'question'], ['c', 'permission']]))
+  })
+
+  it('新しいセッション・状態が変わらない・完了でない変化は、入らない', () => {
+    const prev = sessions(['a', 'working'], ['b', 'permission'])
+    const next = sessions(['a', 'working'], ['b', 'working'], ['c', 'permission'])
+    assert.deepEqual(detectMarks(prev, next), new Map())
   })
 })
 

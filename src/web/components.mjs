@@ -3,7 +3,7 @@
 import { createElement as h, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   CONVERSATION_POLL_MS, INSTRUCTION_LABEL, MAX_INSTRUCTION, PREVIEW_COLLAPSE_CHARS, REQUEST_LABEL, SHORT_LABEL, TOOL_STATUS_LABEL, VIEW_ONLY_LABEL,
-  accountName, applyLatest, buildAnswers, buildTree, collapsePreview, deliveredInstructionIds, emptyConversation, emptyDraft, formatClock,
+  accountName, applyLatest, bestMark, buildAnswers, buildTree, collapsePreview, deliveredInstructionIds, emptyConversation, emptyDraft, formatClock,
   formatElapsed, formatPrompt, groupTools, isAttention, isFinal, mergeTimeline, parsePreview, prependOlder, previewLength, projectName, recordsFor,
   requestRecordsFor, runningToolIds, setOther, shortId, sidebarAllowRequest, summarizeToolGroup, toggleOption, toolHasMore, toolStatus,
   toolSummaryOf, validateAnswers, validateInstruction, withConversationError,
@@ -293,7 +293,7 @@ export const StatusLine = ({ session, elapsedMs }) =>
 const AWAY_PX = 160
 const LOAD_OLDER_PX = 300
 
-export const Detail = ({ session, now, instructions, requestRecords, fetchConversation, onBack, onSend, onCancel, onDismiss, onRespond, onDismissRequest }) => {
+export const Detail = ({ session, now, instructions, requestRecords, fetchConversation, onBack, onSend, onCancel, onDismiss, onRespond, onDismissRequest, scrollPositions }) => {
   const scroller = useRef(null)
   const [away, setAway] = useState(false)
   const awayRef = useRef(false)
@@ -312,18 +312,59 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
   const running = runningToolIds(conv.messages)
   const timeline = groupTools(mergeTimeline(conv.messages, events, { hasMoreBefore: conv.cursor !== null }))
 
-  const scrollToBottom = () => { if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight }
+  // 位置を意図して変えるたびに進む番号。あとから「まだ自分の置いた位置のままか」を確かめるのに使う
+  const posToken = useRef(0)
+  const touch = () => ++posToken.current
+  // 一番下へ。更新の直後は、画像・折り返しなどでまだ高さが確定しきっていないことがあるので、
+  // 描画が済んでからもう一度合わせ直す（真の一番下まで届かせる）。その間に、利用者が動かした・他の処理が位置を変えていたら、触らない
+  const scrollToBottom = () => {
+    const el = scroller.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+    const pinned = el.scrollTop
+    const token = touch()
+    const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 0)
+    // 置いたときのままか（利用者が動かしていない・他の処理が位置を変えていない）ときだけ、合わせ直す
+    raf(() => {
+      const el2 = scroller.current
+      if (el2 && posToken.current === token && el2.scrollTop === pinned) el2.scrollTop = el2.scrollHeight
+    })
+  }
+  // 一番下からの距離（px）。ページ分けで読み込み済みの量が変わっても、同じ意味になる（AC-UI-37）
+  const distanceFromBottom = (el) => el.scrollHeight - el.scrollTop - el.clientHeight
+  // 現在の位置から、「一番下へ」ボタンの要否（away）を測り直す
+  const syncAway = () => {
+    const el = scroller.current
+    if (!el) return
+    const isAway = distanceFromBottom(el) > AWAY_PX
+    awayRef.current = isAway
+    setAway(isAway)
+  }
   // 自分の操作や要求の出現（カード・結果・指示）が増えたときは一番下へ。開いたときも一番下へ（AC-UI-23）
   const count = requests.length + events.length + pending.length
   useLayoutEffect(scrollToBottom, [count])
-  // 会話の新着は、一番下の近くにいるときだけ一番下へ。上を読んでいるときは動かさない。最初に読み込めたときは、一番下へ
-  const newest = conv.messages.at(-1)?.id
-  const seen = useRef({ loaded: false, newest: undefined })
+  // 開いたとき（最初に読み込めたとき）に、覚えておいた位置まで戻している間だけ、目標の距離を持つ（AC-UI-37）
+  const restoring = useRef(null)
+  // 会話の新着・更新（新しい発言・ツールの結果が付くなど。etag は内容が変わるたびに変わる）は、一番下の近くにいるときだけ一番下へ。上を読んでいるときは動かさない
+  // 開いたとき（最初に読み込めたとき）は、セッションごとに覚えておいた「一番下からの距離」に戻る。なければ一番下（既定）
+  const seen = useRef({ loaded: false, etag: undefined })
   useLayoutEffect(() => {
     const first = !seen.current.loaded && conv.loaded
-    if (first || (seen.current.newest !== newest && !awayRef.current)) scrollToBottom()
-    seen.current = { loaded: seen.current.loaded || conv.loaded, newest }
-  }, [newest, conv.loaded])
+    if (first) {
+      const distance = scrollPositions?.get(session.sessionId)
+      if (distance != null && distance > 0) restoring.current = { distance }
+      else scrollToBottom()
+      syncAway()
+    } else if (seen.current.etag !== conv.etag && !awayRef.current) {
+      scrollToBottom()
+    }
+    seen.current = { loaded: seen.current.loaded || conv.loaded, etag: conv.etag }
+  }, [conv.etag, conv.loaded])
+  // セッションを切り替える・閉じるときに、最後のスクロール位置（一番下からの距離）を覚えておく（AC-UI-37）
+  useEffect(() => () => {
+    const el = scroller.current
+    if (el) scrollPositions?.set(session.sessionId, distanceFromBottom(el))
+  }, [session.sessionId])
   // 「さらに表示」で前に足したときは、いま見ている位置が動かないよう、増えた高さの分だけ足す
   const anchor = useRef(null)
   const oldest = conv.messages[0]?.id
@@ -331,7 +372,18 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
     const el = scroller.current
     if (anchor.current && el) {
       el.scrollTop = anchor.current.top + (el.scrollHeight - anchor.current.height)
+      touch()
       anchor.current = null
+    }
+    // 覚えておいた距離まで戻れたか（これ以上、前を読んでも届かないときは、読めた分だけで止める）
+    if (restoring.current && el) {
+      const have = el.scrollHeight - el.clientHeight
+      if (have >= restoring.current.distance || conv.cursor === null) {
+        el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - restoring.current.distance)
+        touch()
+        restoring.current = null
+        syncAway()
+      }
     }
   }, [oldest])
   const more = async () => {
@@ -345,12 +397,14 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
     const el = scroller.current
     if (el && conv.cursor !== null && !loadingOlder && el.scrollTop <= LOAD_OLDER_PX) more()
   }
-  // 内容が画面に満たないときは、スクロールできないので、満たすまで自動で読み込む（同じ位置からの読み込みは 1 回だけ）
+  // 内容が画面に満たない・覚えておいた距離にまだ届かないときは、満たす（届く）まで自動で読み込む（同じ位置からの読み込みは 1 回だけ）
   const filledFor = useRef(null)
   useEffect(() => {
     const el = scroller.current
     if (!el || conv.cursor === null || loadingOlder || filledFor.current === conv.cursor) return
-    if (el.scrollHeight - el.clientHeight <= LOAD_OLDER_PX) {
+    const have = el.scrollHeight - el.clientHeight
+    const need = restoring.current ? restoring.current.distance : LOAD_OLDER_PX
+    if (have <= need) {
       filledFor.current = conv.cursor
       more()
     }
@@ -358,9 +412,8 @@ export const Detail = ({ session, now, instructions, requestRecords, fetchConver
   const onScroll = () => {
     const el = scroller.current
     if (!el) return
-    const isAway = el.scrollHeight - el.scrollTop - el.clientHeight > AWAY_PX
-    awayRef.current = isAway
-    setAway(isAway)
+    syncAway()
+    scrollPositions?.set(session.sessionId, distanceFromBottom(el))
     loadIfNearTop()
   }
 
@@ -422,8 +475,12 @@ const Badges = ({ counts }) =>
     counts.question > 0 && h('span', { className: 'chip badge badge-question', 'aria-label': `質問待ち ${counts.question} 件` }, counts.question),
   )
 
+// サイドバーの目印（機能 008、AC-NT-12, 13）: 出来事があったセッションの行・折りたたんだ見出しに出す、小さな色の点
+const MARK_TITLE = { complete: '完了した', permission: '許可待ちになった', question: '質問待ちになった' }
+const MarkDot = ({ kind }) => Boolean(kind) && h('span', { className: `mark-dot mark-${kind}`, title: MARK_TITLE[kind], 'aria-hidden': true })
+
 // セッションの行（AC-UI-11〜14, 17, 18）。1 行目: ID・経過時間・札、2 行目: 直近の発言
-export const SessionRow = ({ session, elapsedMs, selected, onSelect, onRespond }) => {
+export const SessionRow = ({ session, elapsedMs, selected, onSelect, onRespond, markKind = null }) => {
   const prompt = formatPrompt(session.lastPrompt)
   const allow = sidebarAllowRequest(session)
   return h('li', {
@@ -437,6 +494,7 @@ export const SessionRow = ({ session, elapsedMs, selected, onSelect, onRespond }
         h('span', { className: 'sess-id', title: session.sessionId }, shortId(session.sessionId)),
         h('span', { className: 'sess-time' }, formatElapsed(elapsedMs)),
         h('span', { className: 'sess-tags' },
+          h(MarkDot, { kind: markKind }),
           SHORT_LABEL[session.state] && h('span', { className: `chip chip-${session.state}` }, SHORT_LABEL[session.state]),
           !session.controllable && h('span', { className: 'tag-nc' }, VIEW_ONLY_LABEL)),
         h('span', { className: 'sess-prompt', title: session.lastPrompt ?? '' }, prompt ?? '（発言なし）'),
@@ -448,12 +506,13 @@ export const SessionRow = ({ session, elapsedMs, selected, onSelect, onRespond }
   )
 }
 
-const Node = ({ nodeKey, className, head, name, counts, collapsed, onToggle, children }) =>
+const Node = ({ nodeKey, className, head, name, counts, collapsed, onToggle, children, mark = null }) =>
   h('li', { className: `${className}${collapsed ? ' collapsed' : ''}`, 'data-node': nodeKey },
     h('button', { type: 'button', className: `node-head${head ? ` ${head}` : ''}`, 'aria-expanded': !collapsed, onClick: () => onToggle?.(nodeKey) },
       h('span', { className: 'caret', 'aria-hidden': true }, '▾'),
       name,
       h('span', { className: 'node-total' }, counts.total),
+      h(MarkDot, { kind: mark }),
       h(Badges, { counts }),
     ),
     // 折りたたんでいる間は、中身を描画しない
@@ -543,7 +602,7 @@ export const QuitDialog = ({ onClose, onShutdown }) => {
         ]))
 }
 
-export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, version = null, notify = null }) => {
+export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, version = null, notify = null, marked = new Map() }) => {
   const tree = buildTree(sessions, ui)
   return h('aside', { className: 'side' },
     h('div', { className: 'side-head' },
@@ -584,20 +643,20 @@ export const Sidebar = ({ sessions, ready = true, now, ui, onUi, onRespond, vers
         // 最初のスナップショットを受け取るまでは、「セッションがありません」を出さない
         ? ready && h('div', { className: 'none', role: 'status' }, sessions.length === 0 ? 'セッションがありません' : '該当するセッションがありません')
         : h('ul', { className: 'tree' },
-          tree.map((acc) =>
-            h(Node, {
-              key: acc.nodeKey, nodeKey: acc.nodeKey, className: 'acct', head: 'band', counts: acc.counts, collapsed: ui.collapsed.has(acc.nodeKey), onToggle: (k) => onUi?.({ toggle: k }),
-              name: h('span', { className: 'acc-name', title: acc.key }, acc.name),
-            },
-            acc.projects.map((p) =>
-              h(Node, {
-                key: p.key, nodeKey: p.key, className: 'dir', counts: p.counts, collapsed: ui.collapsed.has(p.key), onToggle: (k) => onUi?.({ toggle: k }),
-                name: h('span', { className: 'dir-name', title: p.cwd }, p.name),
-              },
-              p.sessions.map((s) => h(SessionRow, {
-                key: s.sessionId, session: s, elapsedMs: now - s.stateSince, selected: ui.selected === s.sessionId,
-                onSelect: (id) => onUi?.({ selected: id, view: 'detail' }), onRespond,
-              }))))))),
+          tree.map((acc) => h(Node, {
+            key: acc.nodeKey, nodeKey: acc.nodeKey, className: 'acct', head: 'band', counts: acc.counts, collapsed: ui.collapsed.has(acc.nodeKey), onToggle: (k) => onUi?.({ toggle: k }),
+            name: h('span', { className: 'acc-name', title: acc.key }, acc.name),
+            mark: bestMark(acc.projects.flatMap((p) => p.sessions), marked),
+          },
+          acc.projects.map((p) => h(Node, {
+            key: p.key, nodeKey: p.key, className: 'dir', counts: p.counts, collapsed: ui.collapsed.has(p.key), onToggle: (k) => onUi?.({ toggle: k }),
+            name: h('span', { className: 'dir-name', title: p.cwd }, p.name),
+            mark: bestMark(p.sessions, marked),
+          },
+          p.sessions.map((s) => h(SessionRow, {
+            key: s.sessionId, session: s, elapsedMs: now - s.stateSince, selected: ui.selected === s.sessionId,
+            onSelect: (id) => onUi?.({ selected: id, view: 'detail' }), onRespond, markKind: marked.get(s.sessionId) ?? null,
+          }))))))),
     ),
   )
 }
@@ -607,7 +666,9 @@ export const defaultUi = () => ({
 })
 
 // state: client.mjs の状態、now: 補正済みの現在時刻（ミリ秒）、ui: 画面の状態（defaultUi）、onUi: 画面の状態の変更
-export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation, notify = null }) => {
+export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation, notify = null, marked = new Map() }) => {
+  // セッションごとのスクロール位置（AC-UI-37）。App は作り直されないので、このまま持ち続けられる
+  const scrollPositions = useRef(new Map()).current
   const all = [...state.sessions.values()]
   const selected = ui.selected ? state.sessions.get(ui.selected) ?? null : null
   // 選んでいたセッションが閉じたら、詳細は空にして、スマホでは一覧に戻す
@@ -616,12 +677,12 @@ export const App = ({ state, now, ui = defaultUi(), onUi, onSend, onCancel, onDi
     !state.connected && h('div', { className: 'banner', role: 'alert' },
       state.ready ? 'Hub との接続が切れました。再接続しています…（表示は最後に受け取った内容です）' : 'Hub に接続しています…'),
     h('div', { className: `app view-${view}${state.connected ? '' : ' stale'}` },
-      h(Sidebar, { sessions: all, ready: state.ready, now, ui, onUi, onRespond, version: state.version, notify }),
+      h(Sidebar, { sessions: all, ready: state.ready, now, ui, onUi, onRespond, version: state.version, notify, marked }),
       h('main', { className: 'main' },
         selected
           ? h(Detail, {
             key: selected.sessionId, session: selected, now, instructions: state.instructions, requestRecords: state.requestRecords,
-            onBack: () => onUi?.({ view: 'list' }), fetchConversation, onSend, onCancel, onDismiss, onRespond, onDismissRequest,
+            onBack: () => onUi?.({ view: 'list' }), fetchConversation, onSend, onCancel, onDismiss, onRespond, onDismissRequest, scrollPositions,
           })
           : h('div', { className: 'empty' },
             h('div', null, h('p', null, h('b', null, 'セッションを選んでください')), h('p', null, `要対応: ${all.filter(isAttention).length} 件`)))),

@@ -33,26 +33,42 @@ export const alertMs = (settings) => (settings.alertSec === 0 ? ALERT_MAX_MS : s
 
 // ---- 出来事の検出 ----
 
-const RANK = { permission: 3, question: 2, complete: 1 }
+export const RANK = { permission: 3, question: 2, complete: 1 }
+
+// 1 セッションぶんの、状態の変化から出来事の種類を決める（なければ null）
+//  - 前の状態がない（新しく現れた）・状態が変わらないときは、null（AC-NT-3）
+//  - 許可待ちになった → permission、質問待ちになった → question、作業中 → 返答待ち → complete（AC-NT-1, 2）
+const kindOf = (before, session) => {
+  if (!before || before.state === session.state) return null
+  if (session.state === 'permission') return 'permission'
+  if (session.state === 'question') return 'question'
+  if (before.state === 'working' && session.state === 'waiting') return 'complete'
+  return null
+}
 
 // 前の一覧と次の一覧（どちらも sessionId -> セッションの Map）を比べて、知らせる出来事を 1 つ返す（なければ null）。
 //  - 前の一覧がない（最初のスナップショット）ときは、知らせない（AC-NT-3）
-//  - 新しく現れたセッション・状態が変わらないセッションは、見ない（AC-NT-3）
-//  - 許可待ちになった → permission、質問待ちになった → question、作業中 → 返答待ち → complete（AC-NT-1, 2）
 //  - 複数あれば、許可 > 質問 > 完了（AC-NT-4）
 export const detectAlert = (prev, next) => {
   if (!prev) return null
   let found = null
   for (const [id, session] of next) {
-    const before = prev.get(id)
-    if (!before || before.state === session.state) continue
-    let kind = null
-    if (session.state === 'permission') kind = 'permission'
-    else if (session.state === 'question') kind = 'question'
-    else if (before.state === 'working' && session.state === 'waiting') kind = 'complete'
+    const kind = kindOf(prev.get(id), session)
     if (kind && (!found || RANK[kind] > RANK[found])) found = kind
   }
   return found
+}
+
+// 出来事があった、すべてのセッション（サイドバーの目印用。AC-NT-12）。戻り値: sessionId -> 出来事の種類の Map
+// detectAlert と同じ判定だが、1 つに絞らず、起きたセッションぶんすべて返す
+export const detectMarks = (prev, next) => {
+  const marks = new Map()
+  if (!prev) return marks
+  for (const [id, session] of next) {
+    const kind = kindOf(prev.get(id), session)
+    if (kind) marks.set(id, kind)
+  }
+  return marks
 }
 
 // ---- 音と点滅 ----

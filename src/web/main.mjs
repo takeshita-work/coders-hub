@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { App, defaultUi } from './components.mjs'
 import { createClient, initialState } from './client.mjs'
 import { applyUiPatch, countStates, titleFor } from './logic.mjs'
-import { createFlasher, createNotifier, createWebAudioPlayer, detectAlert, normalizeSettings } from './notify.mjs'
+import { createFlasher, createNotifier, createWebAudioPlayer, detectAlert, detectMarks, normalizeSettings } from './notify.mjs'
 
 // 絞り込み・並び・折りたたみは、このブラウザだけの設定として保存する（読み書きに失敗しても動く）
 const load = (key, fallback) => {
@@ -37,6 +37,8 @@ const Dashboard = () => {
   settingsRef.current = notifySettings
   const notifierRef = useRef(null)
   const prevSessionsRef = useRef(null)
+  // サイドバーの目印（機能 008 拡張、AC-NT-12〜14）: sessionId -> 出来事の種類。開くと消える
+  const [marked, setMarked] = useState(() => new Map())
 
   useEffect(() => {
     const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
@@ -60,9 +62,18 @@ const Dashboard = () => {
   // セッションの状態が変わったら、出来事を見つけて知らせる。最初のスナップショットでは、知らせない（AC-NT-1〜4）
   useEffect(() => {
     if (!state.ready) { prevSessionsRef.current = null; return }
-    const kind = detectAlert(prevSessionsRef.current, state.sessions)
+    const prev = prevSessionsRef.current
+    const kind = detectAlert(prev, state.sessions)
+    const marks = detectMarks(prev, state.sessions)
     prevSessionsRef.current = state.sessions
     if (kind) notifierRef.current?.notify(kind)
+    // サイドバーの目印を足し、終了したセッションの目印は消す（AC-NT-12〜14）
+    setMarked((current) => {
+      let next = current
+      for (const [id, k] of marks) { if (next === current) next = new Map(current); next.set(id, k) }
+      for (const id of current.keys()) if (!state.sessions.has(id)) { if (next === current) next = new Map(current); next.delete(id) }
+      return next
+    })
   }, [state.sessions, state.ready])
 
   // 経過時間を、画面を操作しなくても進める（AC-001-8）
@@ -77,6 +88,15 @@ const Dashboard = () => {
 
   // 画面の状態の変更。保存するのは、絞り込み・並び・折りたたみだけ（選択やパネルの開閉は保存しない）
   const onUi = useCallback((patch) => {
+    // セッションを選んで開いたら、サイドバーの目印を消す（AC-NT-14）
+    if (patch.selected) {
+      setMarked((current) => {
+        if (!current.has(patch.selected)) return current
+        const next = new Map(current)
+        next.delete(patch.selected)
+        return next
+      })
+    }
     setUi((prev) => {
       const next = applyUiPatch(prev, patch)
       if ('onlyControl' in patch) save('coders-hub.onlyControl', next.onlyControl)
@@ -116,7 +136,7 @@ const Dashboard = () => {
   // 会話の取得（機能 004）。詳細を開いている間だけ、画面が呼ぶ
   const fetchConversation = useCallback((sessionId, options) => clientRef.current.fetchConversation(sessionId, options), [])
 
-  return h(App, { state, now: tick + state.offset, ui, onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation, notify })
+  return h(App, { state, now: tick + state.offset, ui, onUi, onSend, onCancel, onDismiss, onRespond, onDismissRequest, onShutdown, fetchConversation, notify, marked })
 }
 
 createRoot(document.getElementById('root')).render(h(Dashboard))

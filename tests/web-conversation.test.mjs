@@ -300,6 +300,78 @@ describe('スクロール（機能 006 の AC-UI-23 を会話にも）', () => {
     await waitFor(() => assert.match(container.textContent, /発言 3/), { timeout: 5000 })
     assert.equal(sc.top, 2000, '一番下の近くにいるときは、一番下へ')
   })
+
+  it('末尾のメッセージの中身が更新された（ID は同じ・ツールの結果が付くなど）ときも、新着と同じに扱う', async () => {
+    const pages = [
+      { status: 'ok', messages: [msg(1, { text: '実行中' })], cursor: null, etag: 'a' },
+      { status: 'ok', messages: [msg(1, { text: '完了' })], cursor: null, etag: 'b' }, // id は同じ「1」のまま、中身と etag だけ変わる
+    ]
+    const { container } = render(h(Detail, props(async () => pages.shift() ?? { status: 'notModified' })))
+    await waitFor(() => assert.match(container.textContent, /実行中/), { timeout: 5000 })
+    const el = container.querySelector('.detail')
+    const sc = fakeScroll(el)
+    sc.top = 1500 // 一番下の近く
+    fireEvent.scroll(el)
+    await act(async () => { await new Promise((r) => setTimeout(r, 2100)) })
+    await waitFor(() => assert.match(container.textContent, /完了/), { timeout: 5000 })
+    assert.equal(sc.top, 2000, '末尾のメッセージの中身が変わっただけでも、一番下へ')
+  })
+})
+
+describe('セッションごとのスクロール位置（AC-UI-37）', () => {
+  const fakeScroll = (el, { scrollHeight = 2000, clientHeight = 500, scrollTop = 0 } = {}) => {
+    const state = { height: scrollHeight, top: scrollTop }
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, get: () => state.height })
+    Object.defineProperty(el, 'clientHeight', { configurable: true, get: () => clientHeight })
+    Object.defineProperty(el, 'scrollTop', { configurable: true, get: () => state.top, set: (v) => { state.top = v } })
+    return state
+  }
+  const detail = (sessionId, scrollPositions) => h(Detail, {
+    key: sessionId, session: sess({ sessionId }), now: 10_000, instructions: new Map(), requestRecords: new Map(), onBack() {}, scrollPositions,
+    fetchConversation: async () => ({ status: 'ok', messages: [msg(1)], cursor: null, etag: 'a' }),
+  })
+
+  it('初めて開くセッションは一番下。別セッションへ移って戻ると、覚えておいた位置に戻り、一番下でなければ「一番下へ」が出る', async () => {
+    const positions = new Map()
+    const { container, rerender } = render(detail('s1', positions))
+    const el1 = container.querySelector('.detail')
+    const sc1 = fakeScroll(el1)
+    await screen.findByText(/発言 1/)
+    assert.equal(sc1.top, 2000, '初めては一番下')
+
+    sc1.top = 300 // s1 を読んでいる途中
+    fireEvent.scroll(el1)
+    assert.equal(positions.get('s1'), 1200, '覚えるのは、一番下からの距離（2000 - 300 - 500）')
+
+    rerender(detail('s2', positions)) // 別のセッションへ
+    const el2 = container.querySelector('.detail')
+    const sc2 = fakeScroll(el2)
+    await screen.findByText(/発言 1/)
+    assert.equal(sc2.top, 2000, '初めて開く s2 は一番下')
+    assert.equal(container.querySelector('.to-bottom').hidden, true)
+
+    rerender(detail('s1', positions)) // s1 に戻る
+    const el1b = container.querySelector('.detail')
+    const sc1b = fakeScroll(el1b)
+    await screen.findByText(/発言 1/)
+    assert.equal(sc1b.top, 300, '覚えておいた位置に戻る')
+    assert.equal(container.querySelector('.to-bottom').hidden, false, '一番下でないので「一番下へ」が出る')
+  })
+
+  it('覚えているのは「一番下からの距離」。最初のページだけ読み込んだ時点の高さが違っても、正しく戻る（ページ分けの影響を受けない）', async () => {
+    const positions = new Map()
+    positions.set('s1', 900) // 前回、一番下から 900px 離れた位置にいた
+    const { container } = render(h(Detail, {
+      key: 's1', session: sess({ sessionId: 's1' }), now: 10_000, instructions: new Map(), requestRecords: new Map(), onBack() {},
+      scrollPositions: positions,
+      fetchConversation: async () => ({ status: 'ok', messages: [msg(1)], cursor: null, etag: 'a' }), // これ以上、前の会話はない
+    }))
+    const el = container.querySelector('.detail')
+    const sc = fakeScroll(el, { scrollHeight: 1000, clientHeight: 200 }) // 読み込めているのは、800px 分だけ（900px には届かない）
+    await screen.findByText(/発言 1/)
+    assert.equal(sc.top, 0, '900px には届かないので、読める分だけ戻る（一番上。マイナスにはしない）')
+    assert.equal(container.querySelector('.to-bottom').hidden, false, '一番下ではないので「一番下へ」が出る')
+  })
 })
 
 // ---- ツールの行・グループ・時刻順の並び（AC-007-4, 22, 23, 25。ADR 0029）----

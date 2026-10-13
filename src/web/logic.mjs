@@ -1,5 +1,6 @@
 // 画面の表示ロジック（React に依存しない純粋な関数）。仕様: specs/30-features/006-dashboard-layout/spec.md（ADR 0015）
 //  - ツリー・並び・件数・経過時間・タイトル（AC-UI-4〜9, 11, 28）
+import { RANK } from './notify.mjs'
 
 export const STATE_LABEL = { permission: '許可待ち', question: '質問待ち', waiting: '返答待ち', working: '作業中' }
 // 行と状態の行に出す札。返答待ちは何もない状態なので、札を出さない（ADR 0015）
@@ -95,6 +96,17 @@ export const buildTree = (sessions, { onlyControl = false, dirSort = 'asc', sess
     return { key, nodeKey: `a:${key}`, name: accountName(key || null), counts: countStates(all), earliest: Math.min(...all.map(startedOf)), projects }
   })
   return accounts.sort((a, b) => a.earliest - b.earliest || a.name.localeCompare(b.name) || a.key.localeCompare(b.key))
+}
+
+// サイドバーの目印（機能 008、AC-NT-13）: セッションの集まりの中で、最も優先度の高い出来事の種類（なければ null）。
+// marked: sessionId -> 出来事の種類（notify.mjs の detectMarks）。優先順位は、許可 > 質問 > 完了
+export const bestMark = (sessions, marked) => {
+  let best = null
+  for (const s of sessions) {
+    const kind = marked.get(s.sessionId)
+    if (kind && (!best || RANK[kind] > RANK[best])) best = kind
+  }
+  return best
 }
 
 // サイドバーの「許可」ボタンを出せる要求（AC-UI-17, 18）: 操作モードで、入力が 200 文字以下かつ省略されていない許可要求

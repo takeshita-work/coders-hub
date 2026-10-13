@@ -149,6 +149,7 @@ curl.exe -X POST http://127.0.0.1:47765/event -H "Content-Type: application/json
 - 許可要求・質問がダッシュボードに出ない: 操作モード（手順 8）で起動しているか確認する。一覧だけのモードでは、許可待ち・質問待ちの表示は出るが、応答の操作はできない
 - 質問に答えようとすると「時間切れ」になる: 質問が出てから約 85 秒（環境変数 `CODERS_HUB_ASK_WAIT_MS` で変更）のうちに答えなかった。ターミナルの質問画面に答えるか、もう一度質問してもらう
 - 指示が「届いたか確認できません」になる: 開発用フラグ（`--dangerously-load-development-channels server:coders-hub`）を付けずに起動した可能性が高い。フラグがないと、サーバーは動くが、通知は黙って捨てられる（手順 8）
+- フラグを付けて起動しても、起動時の警告画面が出ない・指示が届かない（2026-10-13、実機で確認）: 組織の管理設定で、開発用チャネル機能自体がブロックされている場合がある（Claude Team・Enterprise など）。起動時に `--dangerously-load-development-channels blocked by org policy (server:coders-hub)` と出ていれば、これが原因。個人の設定では直せず、組織の管理者が managed settings で `channelsEnabled: true` にする必要がある
 
 ## 8. 操作モード（指示を送る）
 

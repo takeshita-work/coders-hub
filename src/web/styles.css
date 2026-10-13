@@ -52,6 +52,12 @@ button { cursor: pointer; }
 .badge-question { background: var(--question-solid); }
 .hint { font-size: 14px; color: var(--waiting); }
 
+/* サイドバーの目印（出来事があったセッション。機能 008 拡張、AC-NT-12, 13） */
+.mark-dot { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.mark-complete { background: var(--working); }
+.mark-permission { background: var(--permission-solid); }
+.mark-question { background: var(--question-solid); }
+
 /* ---- サイドバー ---- */
 .app > .side { display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: var(--side-bg); border-right: 1px solid var(--border); }
 .side-head { padding: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
@@ -258,9 +264,9 @@ button { cursor: pointer; }
 .md-hr { margin: 10px 0; border: 0; border-top: 1px solid var(--border); }
 .md-link { color: var(--working); text-decoration: underline; }
 .md-image { color: var(--muted); font-style: italic; }
-.md-table-wrap { margin: 8px 0; max-width: 100%; overflow-x: auto; }
-.md-table { border-collapse: collapse; font-size: 0.95em; }
-.md-table th, .md-table td { padding: 3px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: normal; white-space: nowrap; }
+.md-table-wrap { margin: 8px 0; max-width: 100%; }
+.md-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.95em; }
+.md-table th, .md-table td { padding: 3px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; white-space: normal; }
 .md-table th { background: var(--surface); font-weight: 700; }
 
 /* ツールの使用: 閉じた 1 行（ツール名・要点・結果・時刻）。クリックで開くと、実行したコマンド・ファイル名の全文が見える（出力は出さない） */

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  SHORT_LABEL, accountName, applyUiPatch, buildTree, countStates, formatElapsed, formatPrompt, isAttention, projectName,
+  SHORT_LABEL, accountName, applyUiPatch, bestMark, buildTree, countStates, formatElapsed, formatPrompt, isAttention, projectName,
   reduceMessage, shortId, sidebarAllowRequest, titleFor,
 } from '../src/web/logic.mjs'
 
@@ -129,6 +129,27 @@ describe('要対応・札・件数・タイトル', () => {
   it('AC-UI-28: 要対応（許可待ち・質問待ち）があればタイトルに件数、0 件なら件数なし', () => {
     assert.equal(titleFor({ permission: 2, question: 1, waiting: 3, working: 1, total: 7 }), '(3) Coders Hub')
     assert.equal(titleFor({ permission: 0, question: 0, waiting: 5, working: 4, total: 9 }), 'Coders Hub')
+  })
+})
+
+describe('サイドバーの目印の集約（AC-NT-13）: bestMark', () => {
+  it('マークがなければ null', () => {
+    assert.equal(bestMark([s('a', 'working', 1), s('b', 'waiting', 1)], new Map()), null)
+  })
+
+  it('1 件マークがあれば、その種類', () => {
+    assert.equal(bestMark([s('a', 'working', 1), s('b', 'waiting', 1)], new Map([['b', 'complete']])), 'complete')
+  })
+
+  it('複数あれば、許可 > 質問 > 完了 の優先順位で、最も優先度の高い種類', () => {
+    const marked = new Map([['a', 'complete'], ['b', 'question']])
+    assert.equal(bestMark([s('a', 'w', 1), s('b', 'w', 1)], marked), 'question')
+    marked.set('c', 'permission')
+    assert.equal(bestMark([s('a', 'w', 1), s('b', 'w', 1), s('c', 'w', 1)], marked), 'permission')
+  })
+
+  it('渡したセッションに含まれない sessionId のマークは見ない', () => {
+    assert.equal(bestMark([s('a', 'w', 1)], new Map([['other', 'permission']])), null)
   })
 })
 
