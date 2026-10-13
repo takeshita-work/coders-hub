@@ -65,15 +65,15 @@
 - [x] T4g-2 メニュー（`guide.mjs` の `guideScript`、`guide.ps1`、`guide.cmd`）（AC-011-29）
 - [x] T4g-3 テスト（`tests/guide.test.mjs`、`tests/cli.test.mjs`）。メニューの操作（1・2・不正な入力・空で終了）を、ビルドした exe で、標準入力から確認
 - [x] T4g-4 文書: README・`docs/setup.md`・`docs/release-readme.txt`
-- [ ] T4g-5 実機（目視）: メニューの表示、`3` のメモ帳、スクロール（ユーザーの確認待ち）
+- [ ] T4g-5 実機（目視）: メニューの表示、スクロール（ユーザーの確認待ち。ADR 0028 でメニューは 2 項目になり、`3` のメモ帳はない）
 
 ## フェーズ 4h: セットアップを `claude mcp add` と手順メニューにする（ADR 0026・0027）
 - [x] T4h-1 `src/setup/mcp-config.mjs`（`buildMcpAddCommand`・解除のコマンド）、`src/setup/steps.mjs`（手順のデータ）、`render.mjs`（`setup`・`setup --json`・`setup --write` はフックだけ）（AC-011-8, 30, 31）
 - [x] T4h-2 案内のメニュー（`guide.mjs`）: `1` 手順を 1 つずつ表示（Enter・b・c・q）、`2` フックの保存（AC-011-29）
 - [x] T4h-3 テスト: 手順の文面（ユニット）、メニューの流れ（PowerShell に入力を流す結合テスト）
 - [x] T4h-3b 文面の正を `setup-flow.md` に置き、`steps.mjs` との一致をテストする（`tests/setup-flow.test.mjs`）
-- [ ] T4h-4 実機（目視）: `dist/exe/coders-hub.exe` のメニューで、3 つの手順を進め、実際に `claude mcp add` で登録して一覧に出る（ユーザーの確認待ち）
-- [ ] T4h-5 未確認の点の確認: 開発用フラグなしの `claude` の挙動（ADR 0026）、PowerShell での `--` と引用符つきパスの渡り方、`--scope user` がアカウントごとに分かれること
+- [ ] T4h-4 実機（目視）: `dist/exe/coders-hub.exe` のメニューで、3 つの手順を進める（ユーザーの確認待ち）。`claude mcp add` での登録・一覧への表示・操作できる状態は、2026-10-13 に確認済み（`setup-flow.md` の確認済みの点）
+- [ ] T4h-5 未確認の点の確認: 開発用フラグなしの `claude` の挙動（ADR 0026）、hooks の構造。`--` と引用符つきパス・`--scope user` のアカウントごとの分かれ方は確認済み（2026-10-12）。同名の `.mcp.json` の競合は、確認済み（2026-10-13）
 - [x] T4h-6 文書: README・`docs/setup.md`・`docs/release-readme.txt`
 
 ## フェーズ 4i: 設定のファイル保存をやめ、手順を 3 つにする（ADR 0028）

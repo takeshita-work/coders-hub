@@ -25,7 +25,7 @@
 - 文面は、次の「例の前提」の値で、具体的に書く。`steps.mjs` にこの値を渡して作った出力が、手順の節と一致する
 
 ## 例の前提
-次の値は、例です。実際の表示では、利用者の値に置き換わります（登録のコマンドとフックの JSON は exe のパス、`/health` と画面の URL はポート）。
+次の値は、例です。実際の表示では、利用者の値に置き換わります（登録のコマンドとフックの JSON は exe のパス、画面の URL はポート）。
 
 - exe のパス: `C:\Tools\coders-hub\coders-hub.exe`
 - 内部 API のポート: `47765`（既定）
@@ -50,6 +50,12 @@
 - `--scope user` の登録は、`<CLAUDE_CONFIG_DIR>\.claude.json` に保存される。設定フォルダごとに分かれる（手順 1 の「アカウントの指定」）
 - 登録済みのときに、もう一度 `claude mcp add` を実行すると、`MCP server coders-hub already exists in user config` のエラーになる（手順 1 の「先に、解除してから、登録します」）
 - `claude mcp list` は、`coders-hub: <exe> channel --channel - ✔ Connected` と表示する。Hub が止まっていても、Connected になる（手順 1 の「一覧に coders-hub が出れば」）
+
+## 確認済みの点（2026-10-13。実際の Hub と、`claude mcp add` で登録した `claude` で確認）
+- `claude mcp add --scope user` の登録で、`claude --dangerously-load-development-channels server:coders-hub` を起動すると、Hub に「操作できる」セッションとして出る（チャネルサーバーは `coders-hub.exe channel --channel`）
+- **プロジェクトの `.mcp.json` に同じ名前（`coders-hub`）があると、ユーザー設定の登録より優先される。** `--channel` のない定義なら、開発用フラグがあっても「閲覧のみ」になる。`claude mcp list` に「Conflicting scopes」の警告が出る。手順 1 の前に、そのフォルダの `.mcp.json` に `coders-hub` がないか確認する（あれば消すか、同じ名前を使わない）
+- さらに、`.claude/settings.local.json` の `enabledMcpjsonServers` に `coders-hub` が入ると（プロジェクトの MCP サーバーを許可すると、`claude` が自分で書き込む）、**2 つのチャネルサーバーが同時に動く**。同じセッションに、操作できる登録と閲覧のみの登録が交互に届き、画面の「閲覧のみ」が点滅する
+- `claude --resume` では、チャネルサーバーの `CLAUDE_CODE_SESSION_ID` だけが新しい ID になり、Hub で 2 行に分かれる（元の行は閲覧のみ）。機能 001 の tasks.md フェーズ R で扱う
 
 ## 手順
 

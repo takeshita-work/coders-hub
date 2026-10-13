@@ -141,6 +141,9 @@ curl.exe -X POST http://127.0.0.1:47765/event -H "Content-Type: application/json
 ## 7. うまくいかないとき
 
 - 一覧に出ない: `http://127.0.0.1:47765/health` が `ok` を返すか確認する。`claude` で `/mcp` を開き、`coders-hub` が connected か確認する
+- 同じ名前の MCP サーバーが 2 つある（「閲覧のみ」になる・画面で点滅する）: そのフォルダの `.mcp.json` に `coders-hub` があると、`claude mcp add` の登録より優先される。`claude mcp list` の「Conflicting scopes」で分かる。`.mcp.json` の定義を消す（または `--channel` をそろえる）。`.claude/settings.local.json` の `enabledMcpjsonServers` に `coders-hub` があれば、それも消して、`claude` を起動し直す
+- `claude --resume` で、1 つの会話が 2 行に分かれる: 既知の課題（機能 001 の tasks.md フェーズ R）。元の行は閲覧のみで、新しい行が操作できる
+- exe のビルドが `EBUSY` で失敗する: 実行中の `coders-hub.exe`（Hub・`claude` のチャネルサーバー）は、消せない。環境変数 `CODERS_HUB_EXE_OUT` で別の場所（例 `dist/exe-next`）に作り、実行中の exe は名前を変えて退避（`coders-hub.old.exe`）してから、新しい exe を置く。実行中のプロセスは止めない
 - ポートがすでに使われている: 別のプロセス（前の実験の仮 Hub など）が使っている。止めるか、ポートを変える
 - 状態が更新されない: 手順 3-1 のフックが、そのアカウントの `settings.json` に入っているか確認する
 - 許可要求・質問がダッシュボードに出ない: 操作モード（手順 8）で起動しているか確認する。一覧だけのモードでは、許可待ち・質問待ちの表示は出るが、応答の操作はできない

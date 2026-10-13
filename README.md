@@ -101,7 +101,7 @@ npm install
 npm run build        # 画面をビルド（dist/web）
 npm start            # Hub を前面で起動（http://127.0.0.1:47766/）
 npm test             # テスト（node:test）
-npm run build:exe    # 配布版の exe を作る（dist/exe/coders-hub.exe）
+npm run build:exe    # 配布版の exe を作る（dist/exe/coders-hub.exe）。実行中の exe があるときは、docs/setup.md の「EBUSY」
 npm run package      # 配布物のファイルを作る（dist/release/）
 node scripts/print-setup.mjs   # claude に入れる設定を表示（開発版。node で起動する形）
 ```

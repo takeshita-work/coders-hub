@@ -83,4 +83,4 @@
 - [x] 画面側のフレームワーク: React ＋ esbuild（`../20-design/architecture.md`、ADR 0008）。当初の React + Vite から変更
 - [ ] 外部公開の方式（Cloudflare Tunnel + Access／Tailscale）→ ADR 0005
 - [ ] 外部からの許可応答を「拒否のみ」に絞るか
-- [ ] resume した会話の扱い（2026-10-13）: フックの `session_id`・記録ファイルは元の ID のまま、チャネルサーバーの `CLAUDE_CODE_SESSION_ID` だけ新しい ID になり、Hub で 2 行に分かれる（元の行は閲覧のみ）。`SessionStart`（`source=resume`）の入力と、環境変数が変わる条件を実機で確かめ、2 つの ID を 1 行にまとめる方法を決める（機能 001・006 AC-UI-36）→ ADR
+- [ ] resume した会話の扱い（2026-10-13）: フックの `session_id`・記録ファイルは元の ID のまま、チャネルサーバーの `CLAUDE_CODE_SESSION_ID` だけ新しい ID になり、Hub で 2 行に分かれる（元の行は閲覧のみ）。`SessionStart`（`source=resume`）の入力と、環境変数が変わる条件を実機で確かめ、2 つの ID を 1 行にまとめる方法を決める（機能 001・006 AC-UI-36）→ ADR。タスクは機能 001 の tasks.md フェーズ R（TR-1〜4）

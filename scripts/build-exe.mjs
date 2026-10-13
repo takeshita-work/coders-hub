@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url'
 import { SUBSYSTEM_GUI, setSubsystem } from './pe-subsystem.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const out = path.join(root, 'dist/exe')
+// 出力先。実行中の exe があると dist/exe を消せない（EBUSY）ので、環境変数 CODERS_HUB_EXE_OUT で変えられる
+const out = process.env.CODERS_HUB_EXE_OUT ? path.resolve(process.env.CODERS_HUB_EXE_OUT) : path.join(root, 'dist/exe')
 const web = path.join(root, 'dist/web')
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 const log = (...a) => console.log('[build-exe]', ...a)
